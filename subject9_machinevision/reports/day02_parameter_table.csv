@@ -1,0 +1,39 @@
+﻿image,problem,method,parameter,improved,worse,next_inspection_helpful
+cap_on_reference.jpg,색공간 선택,Color Space,BGR,원본 색상 확인 가능,3채널이라 이후 처리가 복잡함,no
+cap_on_reference.jpg,색공간 선택,Color Space,Gray,병뚜껑 형태와 밝기 차이가 잘 보임,색상 정보 사라짐,yes
+cap_on_reference.jpg,색공간 선택,Color Space,HSV-H,색상 종류만 분리,검정·회색 뚜껑이라 활용도 낮음,no
+cap_on_reference.jpg,색공간 선택,Color Space,HSV-S,채도 확인 가능,무채색이라 대부분 어두움,no
+cap_on_reference.jpg,색공간 선택,Color Space,HSV-V,Gray와 비슷하게 형태가 잘 보임,Gray 대비 추가 이점 적음,partly
+dark.jpg,dark,Brightness,alpha=1.0 beta=0,기준 이미지,전체가 어두워 홈과 경계가 잘 안 보임,no
+dark.jpg,dark,Brightness,alpha=1.0 beta=20,병뚜껑 형태가 조금 더 잘 보임,변화 폭이 작음,yes
+dark.jpg,dark,Brightness,alpha=1.0 beta=50,병뚜껑과 주변 영역 비교가 쉬워짐,밝은 영역도 함께 증가,yes
+dark.jpg,dark,Brightness,alpha=1.0 beta=80,병뚜껑이 매우 잘 보임,배경과 투명 병 부분 세부정보가 약해지기 시작,partly
+dark.jpg,dark,Gamma,gamma=0.6,없음,더 어두워져 홈과 세부 형태가 거의 안 보임,no
+dark.jpg,dark,Gamma,gamma=0.8,없음,여전히 어두운 영역이 묻힘,no
+dark.jpg,dark,Gamma,gamma=1.0,비교 기준,dark.jpg와 동일,no
+dark.jpg,dark,Gamma,gamma=1.2,세로 홈과 경계가 보이기 시작,개선 폭이 작음,yes
+dark.jpg,dark,Gamma,gamma=1.5,어두운 영역이 살아나 형태가 비교적 명확,특이사항 적음,yes
+dark.jpg,dark,Gamma,gamma=2.0,병뚜껑 세부가 잘 보임,배경과 밝은 영역까지 많이 밝아짐,partly
+low_contrast.jpg,low_contrast,CLAHE,clip=1.0 tile=8x8,홈과 경계가 보임,대비 개선이 약함,partly
+low_contrast.jpg,low_contrast,CLAHE,clip=2.0 tile=8x8,세로 홈과 경계가 더 분명,특이사항 적음,yes
+low_contrast.jpg,low_contrast,CLAHE,clip=3.0 tile=8x8,형태 구분이 더 쉬워짐,배경 Texture 증가 시작,yes
+low_contrast.jpg,low_contrast,CLAHE,clip=4.0 tile=8x8,가장 강한 대비,배경·표면 Texture와 Noise도 강조됨,partly
+noise.jpg,noise,Gaussian,3x3,점 Noise가 조금 부드러워짐 외곽 유지,점 Noise 상당수 남음,partly
+noise.jpg,noise,Gaussian,7x7,전체가 더 부드러워짐,병뚜껑 위·아래 경계가 흐려짐,no
+noise.jpg,noise,Median,3x3,튀는 점 Noise 크게 감소 외곽 유지,잔잔한 입자 일부 남음,yes
+noise.jpg,noise,Median,7x7,점 Noise가 가장 적음 표면 매끄러움,작은 홈과 경계가 부드러워짐,yes
+noise.jpg,noise,Bilateral,d=9 sigmaColor=75 sigmaSpace=75,잔잔한 Noise 감소 형태 유지,밝은 점 Noise 상당수 남음 처리시간 큼,partly
+blur.jpg,blur,Sharpening,"kernel 0,-1,0/-1,5,-1/0,-1,0",흐려진 홈·외곽 경계가 다시 강조됨,원본만큼 복원되지 않음 Noise 강조 가능,partly
+low_contrast.jpg,low_contrast,Threshold,T=80 INV,없음,거의 전체가 검정 객체를 못 찾음,no
+low_contrast.jpg,low_contrast,Threshold,T=120 INV,병뚜껑 대부분이 흰색 배경은 검정,고정값이라 조명 변화에 취약,yes
+low_contrast.jpg,low_contrast,Threshold,T=160 INV,없음,거의 전체가 흰색 배경까지 선택,no
+low_contrast.jpg,low_contrast,Otsu,auto INV (값은 실행 로그 참조),기준값 자동 선택 병뚜껑 형태 비교적 잘 분리,조명 불균일·반사에 약할 수 있음,yes
+low_contrast.jpg,low_contrast,None+Otsu,-,전처리 없이도 전체 형태 비교적 잘 분리,내부·아래쪽 검정 영역 일부 남음,yes
+low_contrast.jpg,low_contrast,Gaussian+Otsu,5x5,형태가 부드러워짐,작은 경계·세부 형태 단순화 큰 개선 없음,partly
+low_contrast.jpg,low_contrast,CLAHE+Otsu,clip=2.0 tile=8x8,일부 영역 강조,내부·아래쪽 불필요 영역도 증가,partly
+challenge.jpg,low_contrast,None+Otsu,original (otsu=109),기준 white=83.7%,뚜껑과 밝은 배경이 함께 흰색·아래 링에 검은 얼룩,partly
+challenge.jpg,low_contrast,CLAHE+Otsu,clip=1.0 tile=8x8 (otsu=105),white=89.1%·링 얼룩이 메워져 뚜껑 몸통과 링이 끊기지 않음·틈 경계 선명,배경은 여전히 뚜껑과 함께 선택됨,yes
+challenge.jpg,low_contrast,CLAHE+Otsu,clip=2.0 tile=8x8 (otsu=104),white=88.8%·링 사이 틈 선명,왼쪽 위와 링 부분에 점 Noise 증가,partly
+challenge.jpg,low_contrast,CLAHE+Otsu,clip=3.0 tile=8x8 (otsu=128),홈 경계 강조,white=57.4%로 급감·뚜껑 표면 Texture가 검정으로 검출되어 몸통이 깨짐,no
+challenge.jpg,low_contrast,Gamma+Otsu,gamma=0.6 (otsu=68),중간 밝기 영역이 어두워짐,white=75.0%·뚜껑 왼쪽 위가 검게 뚫리고 링 얼룩 증가,no
+challenge.jpg,low_contrast,Gamma+Otsu,gamma=0.8 (otsu=89),원본과 거의 동일,white=82.8%·개선 효과 미미,no
