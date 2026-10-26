@@ -1,0 +1,31 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Dataset
+data/
+samples/
+
+# 실행 결과
+outputs/
+
+# 모델
+*.pt
+*.pth
+*.onnx
+*.engine
+
+# 영상
+*.mp4
+*.avi
+*.mov
+
+# OS
+.DS_Store
+Thumbs.db
+*:Zone.Identifier
+
+# 환경설정
+.env
