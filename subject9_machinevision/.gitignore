@@ -1,0 +1,29 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Dataset / 실행 결과 (폴더 구조용 .gitkeep만 추적)
+data/**
+!data/**/
+!data/**/.gitkeep
+samples/**
+!samples/.gitkeep
+outputs/**
+!outputs/.gitkeep
+
+# 모델 / 영상
+*.pt
+*.pth
+*.onnx
+*.engine
+*.mp4
+*.avi
+*.mov
+
+# OS / 환경
+.DS_Store
+Thumbs.db
+*:Zone.Identifier
+.env
