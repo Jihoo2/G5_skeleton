@@ -14,7 +14,7 @@ G5 팀 교과 실습 저장소입니다.
 ```bash
 git checkout main
 git pull
-git checkout -b <본인브랜치>      # 예: jihoo2/subject9
+git checkout -b <본인브랜치>      # 예: seonghwan/subject9
 # ... 작업 ...
 git push -u origin <본인브랜치>
 ```
