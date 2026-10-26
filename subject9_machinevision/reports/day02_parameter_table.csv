@@ -27,10 +27,10 @@ blur.jpg,blur,Sharpening,"kernel 0,-1,0/-1,5,-1/0,-1,0",흐려진 홈·외곽 �
 low_contrast.jpg,low_contrast,Threshold,T=80 INV,없음,거의 전체가 검정 객체를 못 찾음,no
 low_contrast.jpg,low_contrast,Threshold,T=120 INV,병뚜껑 대부분이 흰색 배경은 검정,고정값이라 조명 변화에 취약,yes
 low_contrast.jpg,low_contrast,Threshold,T=160 INV,없음,거의 전체가 흰색 배경까지 선택,no
-low_contrast.jpg,low_contrast,Otsu,auto INV (값은 실행 로그 참조),기준값 자동 선택 병뚜껑 형태 비교적 잘 분리,조명 불균일·반사에 약할 수 있음,yes
-low_contrast.jpg,low_contrast,None+Otsu,-,전처리 없이도 전체 형태 비교적 잘 분리,내부·아래쪽 검정 영역 일부 남음,yes
-low_contrast.jpg,low_contrast,Gaussian+Otsu,5x5,형태가 부드러워짐,작은 경계·세부 형태 단순화 큰 개선 없음,partly
-low_contrast.jpg,low_contrast,CLAHE+Otsu,clip=2.0 tile=8x8,일부 영역 강조,내부·아래쪽 불필요 영역도 증가,partly
+low_contrast.jpg,low_contrast,Otsu,auto INV (otsu=118),기준값 자동 선택 병뚜껑 형태 비교적 잘 분리,조명 불균일·반사에 약할 수 있음,yes
+low_contrast.jpg,low_contrast,None+Otsu,otsu=118,전처리 없이도 전체 형태 비교적 잘 분리,내부·아래쪽 검정 영역 일부 남음,yes
+low_contrast.jpg,low_contrast,Gaussian+Otsu,5x5 (otsu=118),형태가 부드러워짐,작은 경계·세부 형태 단순화 큰 개선 없음,partly
+low_contrast.jpg,low_contrast,CLAHE+Otsu,clip=2.0 tile=8x8 (otsu=132),일부 영역 강조,내부·아래쪽 불필요 영역도 증가,partly
 challenge.jpg,low_contrast,None+Otsu,original (otsu=109),기준 white=83.7%,뚜껑과 밝은 배경이 함께 흰색·아래 링에 검은 얼룩,partly
 challenge.jpg,low_contrast,CLAHE+Otsu,clip=1.0 tile=8x8 (otsu=105),white=89.1%·링 얼룩이 메워져 뚜껑 몸통과 링이 끊기지 않음·틈 경계 선명,배경은 여전히 뚜껑과 함께 선택됨,yes
 challenge.jpg,low_contrast,CLAHE+Otsu,clip=2.0 tile=8x8 (otsu=104),white=88.8%·링 사이 틈 선명,왼쪽 위와 링 부분에 점 Noise 증가,partly
