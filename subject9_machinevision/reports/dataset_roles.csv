@@ -1,0 +1,9 @@
+﻿folder,role,used_when,rule_vision_note,day01_status
+data/calibration,검사 기준 설정용,Threshold·면적 범위 등 기준값 설정,규칙 기반 검사에서는 기준 설정에만 활용; test와 분리,구조 확인; 실제 이미지 배정 여부 확인 불가
+data/train,AI 학습용,머신러닝 모델 학습 시,본 Rule Vision 실습에서는 직접 활용하지 않음,구조 확인; 별도 학습 없음
+data/validation,설정 검토용,후보 파라미터·검사 규칙 비교,최종 test를 열기 전에 후보 간 비교에 활용 가능,구조 확인; 실제 이미지 배정 여부 확인 불가
+data/test,최종 검증용,검사 규칙 확정 이후 독립 평가,기준값 결정에 사용하면 데이터 누수 발생 가능,구조 확인; 최종 성능 평가 미실시
+data/challenge,어려운 조건 확인용,조명·위치·대비 등 실패 조건 확인,한계 및 실패 사례를 기록하는 용도,구조 확인; 2일차 Challenge는 samples/day02에서 수행
+samples,수업 실습용 예제,이미지·동영상 입력 및 ROI 테스트,정식 검증용 데이터셋으로 간주하지 않음,sample01~05.jpg 및 sample.mp4 실습
+outputs/roi,정지영상 ROI 결과,고정 ROI 적합성 확인,평가 데이터셋이 아닌 생성 산출물,정지 이미지 5장 ROI/Preview 확인
+outputs/live_roi,실시간 ROI 결과,뚜껑 있음/없음 비교,2일차 cap_on/off 기준 ROI로 활용,"cap_on.jpg, cap_off.jpg 확인"
