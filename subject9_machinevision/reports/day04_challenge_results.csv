@@ -1,0 +1,5 @@
+﻿filename,good_matches,inliers,inlier_ratio,status
+shift.jpg,44,32,0.7273,FOUND
+rotate.jpg,73,60,0.8219,FOUND
+distance.jpg,48,41,0.8542,FOUND
+tilt_glare.jpg,63,61,0.9683,FOUND
