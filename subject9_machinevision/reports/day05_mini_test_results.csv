@@ -1,0 +1,5 @@
+﻿file,actual,predicted,error_type,sift_good_matches,homography_found,inlier_ratio
+test_ok_01.jpg,OK,NG,FP,67,1,0.7612
+test_ok_02.jpg,OK,NG,FP,56,1,0.7857
+test_ng_01.jpg,NG,NG,TP,36,1,0.6667
+test_ng_02.jpg,NG,NG,TP,7,1,0.8571

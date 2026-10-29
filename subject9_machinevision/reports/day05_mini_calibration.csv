@@ -1,0 +1,7 @@
+﻿file,actual,template_score,sift_good_matches,homography_found,homography_inliers,inlier_ratio
+ok_01.jpg,OK,0.468,69,1,59,0.8551
+ok_02.jpg,OK,0.4026,51,1,46,0.902
+ok_03.jpg,OK,0.3371,56,1,50,0.8929
+ng_01.jpg,NG,0.3368,47,1,37,0.7872
+ng_02.jpg,NG,0.3742,25,1,17,0.68
+ng_03.jpg,NG,0.3191,22,1,17,0.7727

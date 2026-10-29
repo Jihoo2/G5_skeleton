@@ -1,0 +1,6 @@
+{
+    "version": "day05-vitamin-v1.0",
+    "sift_good_matches_min": 50,
+    "inlier_ratio_min": 0.82,
+    "homography_found": 1
+}

@@ -113,3 +113,25 @@ python src/32_day04_challenge.py
 - Mini Challenge 분석: `reports/day04_method_selection.md`
 - 촬영 사진: `samples/day04/my_challenge/`
 - 결과 이미지: `outputs/day04/my_challenge/`
+
+Day 05 — Calibration · 복합 Rule · Test
+4일차에서 사용한 로고 매칭 값을 이용해 OK/NG 기준을 정하는 실습을 진행했다. 광천김 로고의 Template Score, SIFT Good Match, Inlier Ratio를 Calibration 12장에서 비교하고, SIFT와 Inlier Ratio를 함께 사용하는 복합 Rule을 정했다.
+
+광천김 Baseline은 SIFT Good Match ≥ 129, Inlier Ratio ≥ 0.8664, Homography Found = 1로 고정했다. Calibration에서는 12장 중 11장을 맞혔지만, Test에서는 NG 3장은 모두 검출하고 정상 3장은 모두 NG로 판정했다. Test Accuracy는 50%, NG Recall은 100%였으며 FP 3건 모두 Inlier Ratio 기준 미달로 발생했다. Test 결과에 맞춰 기존 Rule은 수정하지 않았다.
+Mini Challenge — 비타민 음료 로고
+4일차에 사용한 VITAMIN C 1000 mg 라벨을 대상으로 정상 사진과 로고 일부를 가린 사진을 새로 촬영했다. Calibration 6장(OK 3장, NG 3장)으로 기준을 정하고, 별도의 Test 4장(OK 2장, NG 2장)에 적용했다.
+구분	Good Match	Inlier Ratio
+Calibration OK	51~69	0.8551~0.9020
+Calibration NG	22~47	0.6800~0.7872
+
+
+Calibration의 측정 범위를 보고 SIFT Good Match ≥ 50, Inlier Ratio ≥ 0.82, Homography Found = 1을 Baseline v1.0으로 고정했다. Calibration에서는 6장을 모두 맞혔다.
+Test	TP	TN	FP	FN	Accuracy
+비타민 음료 4장	2	0	2	0	50%
+
+
+Test 정상 사진 두 장은 Good Match 기준을 통과했지만 Inlier Ratio가 낮아 NG로 판정됐다. 반대로 test_ng_02.jpg는 Inlier Ratio가 0.8571이었으나 Good Match가 7개여서 NG로 판정됐다. Calibration에서 구분되던 값이 새 사진에서도 그대로 유지되지는 않았다.
+- 코드: src/day05_logo_features.py, src/33_day05_check_features.py ~ src/39_day05_mini_challenge.py, src/41_day05_mini_test.py
+- 광천김 기본 실습 결과: reports/day05_calibration_measurements.csv, reports/day05_rule_candidates.csv, reports/day05_test_results.csv, reports/day05_test_metrics.md
+- 비타민 음료 결과: reports/day05_mini_calibration.csv, reports/day05_mini_test_results.csv, reports/day05_mini_challenge.md
+- 비타민 음료 Rule: configs/day05_vitamin_rules.json
