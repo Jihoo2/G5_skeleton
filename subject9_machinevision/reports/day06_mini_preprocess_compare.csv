@@ -1,0 +1,6 @@
+﻿preprocess,expected_text,ocr_text,exact_match
+original,TI776224-2D,11776224-20,False
+gray,TI776224-2D,T1776224-20,False
+clahe,TI776224-2D,TI776224-20,False
+otsu,TI776224-2D,TIT76724-20,False
+clahe_otsu,TI776224-2D,T1778224-20,False

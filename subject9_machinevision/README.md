@@ -134,4 +134,33 @@ Test 정상 사진 두 장은 Good Match 기준을 통과했지만 Inlier Ratio�
 - 코드: src/day05_logo_features.py, src/33_day05_check_features.py ~ src/39_day05_mini_challenge.py, src/41_day05_mini_test.py
 - 광천김 기본 실습 결과: reports/day05_calibration_measurements.csv, reports/day05_rule_candidates.csv, reports/day05_test_results.csv, reports/day05_test_metrics.md
 - 비타민 음료 결과: reports/day05_mini_calibration.csv, reports/day05_mini_test_results.csv, reports/day05_mini_challenge.md
-- 비타민 음료 Rule: configs/day05_vitamin_rules.json
+- 비타민 음료 Rule: configs/day05_vitamin_rules.json## Day 06 — OCR 기반 문자 검사
+
+제품 측면에 인쇄된 SN 13자리를 OCR로 읽고, 실제 인쇄값 및 Expected SN과 비교해 OK/NG를 판정했다. 이미지마다 SN 위치가 달라 ROI를 각각 선택해 저장했고, 대표 이미지에서 Original, Gray, CLAHE, Otsu, CLAHE+Otsu를 비교했다. Original·Gray·CLAHE는 13자리를 정확히 읽었지만 Otsu와 CLAHE+Otsu에서는 일부 숫자가 잘못 인식됐다.
+
+초기 ROI는 세로 범위를 너무 좁게 잡아 첫 번째 SN이 잘못 읽혔다. ROI를 다시 지정한 뒤 `original`, 4배 확대, PSM 7, 숫자 Whitelist를 `day06-ocr-v1.0`으로 사용했다. 최종 Batch 검사에서는 6장 모두 실제 인쇄값을 정확히 읽었고, 교육용 NG 2장을 포함한 제품 OK/NG 판정도 6장 모두 맞혔다.
+
+환경 변화 테스트에서는 Low Contrast만 정확히 인식했다. Blur와 Glare는 문자를 읽지 못했고, Tilt에서는 `9728`만 인식했다. Tilt를 -8도로 보정한 경우에도 OCR 결과는 빈 문자열이었다. 정상 이미지에서는 맞던 설정이 영상 상태가 달라졌을 때는 그대로 유지되지 않았다.
+
+### Mini Challenge — Ch.-B. 코드 검사
+
+새 제품 이미지 4장에서는 `Ch.-B.` 코드 영역만 선택하고 영문·숫자·하이픈을 허용해 OCR을 실행했다. 4장 중 3장은 정확하게 읽었지만 `TI776224-2D`의 마지막 `D`를 `0`으로 인식해 OCR 정확도는 75%였다.
+
+| 전처리 | `TI776224-2D` OCR 결과 |
+|---|---|
+| Original | `11776224-20` |
+| Gray | `T1776224-20` |
+| CLAHE | `TI776224-20` |
+| Otsu | `TIT76724-20` |
+| CLAHE + Otsu | `T1778224-20` |
+
+같은 실패 이미지에 전처리 5가지를 적용했지만 정확한 문자열로 읽은 경우는 없었다. 이후 `^[A-Z0-9-]+$` 대신 `^[A-Z]{2}[0-9]{6}-[0-9][A-Z]$`를 적용하니 마지막 자리가 숫자로 잘못 읽힌 `TI776224-20`을 형식 오류로 걸러낼 수 있었다. OCR 정확도는 그대로 75%이며, 이번 수정은 문자열 형식 검사의 개선이다. 새 Regex는 실습 이미지 4장의 형식에 맞춰 정한 것으로 실제 제품의 공식 규격은 확인하지 않았다.
+
+### 실행 코드 및 결과 파일
+
+- SN OCR 코드: `src/40_day06_check_ocr_env.py` ~ `src/48_day06_challenge.py`, `src/day06_ocr_utils.py`, `src/day06_ocr_validation.py`
+- Mini Challenge 코드: `src/49_day06_mini_challenge.py` ~ `src/51_day06_mini_regex_check.py`
+- SN 검사 결과: `reports/day06_preprocess_compare.csv`, `reports/day06_ocr_results.csv`, `reports/day06_ocr_metrics.md`
+- 환경 변화 테스트: `reports/day06_challenge_results.csv`, `reports/day06_failure_analysis.md`
+- Mini Challenge 결과: `reports/day06_mini_challenge_results.csv`, `reports/day06_mini_preprocess_compare.csv`, `reports/day06_mini_regex_results.csv`, `reports/day06_mini_challenge.md`
+- OCR 설정 및 정답표: `configs/day06_ocr_rules.json`, `configs/day06_labels.csv`

@@ -1,0 +1,5 @@
+﻿file,expected_text,ocr_text,format_ok,exact_match,status
+0185973818825_side.png,NA679903-8A,NA679903-8A,True,True,OK
+0386316000696_side.png,TI776224-2D,TI776224-20,False,False,NG
+0635619134582_side.png,KW156489-8R,KW156489-8R,True,True,OK
+0924467469402_side.png,ER935556-3V,ER935556-3V,True,True,OK
