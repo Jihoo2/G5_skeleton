@@ -1,0 +1,13 @@
+[project]
+name = "subject10-team-pilot"
+version = "0.1.0"
+description = "Subject 10 - VICON mocap vs webcam pilot test"
+requires-python = ">=3.11"
+dependencies = [
+    "ultralytics",
+    "opencv-python",
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "torch",
+]

@@ -1,0 +1,167 @@
+{
+  "team_id": "team05",
+  "fps": 30,
+  "keypoint_confidence": 0.5,
+  "views_deg": {
+    "front": 0,
+    "diag": 45,
+    "side": 90
+  },
+  "actions": {
+    "A001": {
+      "label": "burpee",
+      "glb": "261110_B001_T002_SHG.glb",
+      "metrics_by_view": {
+        "side": [
+          "body_line_min",
+          "body_line_max",
+          "curve_dist"
+        ],
+        "diag": [
+          "body_line_min",
+          "body_line_max",
+          "curve_dist"
+        ],
+        "front": []
+      },
+      "rules": {
+        "body_line_min": {
+          "lo": -0.15,
+          "hi": null
+        },
+        "body_line_max": {
+          "lo": null,
+          "hi": 0.55
+        },
+        "curve_dist": {
+          "lo": null,
+          "hi": 30.0
+        }
+      },
+      "rules_note": "정석 정의(제안값, 플랭크 구간만): 엉덩이가 어깨–발목 선보다 몸통 길이의 15% 이상 처지지 않기(허리 처짐), 55% 이상 들리지 않기(엉덩이 들림) / 무릎·고관절 움직임 흐름이 GLB 정석 버피와 평균 30° 이상 다르지 않기"
+    },
+    "A004": {
+      "label": "lunge",
+      "glb": null,
+      "metrics_by_view": {
+        "side": [
+          "knee_min",
+          "hip_min"
+        ],
+        "diag": [
+          "knee_min",
+          "hip_min"
+        ],
+        "front": []
+      },
+      "leg_combine": "min",
+      "rules": {
+        "knee_min": {
+          "lo": 60.0,
+          "hi": 115.0,
+          "views": [
+            "side"
+          ]
+        },
+        "hip_min": {
+          "lo": 60.0,
+          "hi": null,
+          "views": [
+            "side"
+          ]
+        }
+      },
+      "rules_note": "정석 정의(제안값, 측면에서만 적용): 앞무릎 60~115°(약 90° 목표), 앞다리 고관절 60° 이상. 사선은 몸이 카메라 쪽을 향할수록 허벅지가 짧아 보여 각도가 커지므로 팀 정석 영상 분포로 판정",
+      "glb_note": "B004는 런지가 아니라 한 다리로 서서 무릎을 들어 올리는 동작(니업)으로 확인됨 → 런지 GLB 없음"
+    },
+    "A006": {
+      "label": "plank_kick_through",
+      "glb": "261110_B006_T001_SHG.glb",
+      "metrics_by_view": {
+        "side": [
+          "knee_min",
+          "hip_min",
+          "curve_dist"
+        ],
+        "diag": [
+          "knee_min",
+          "hip_min",
+          "curve_dist"
+        ],
+        "front": []
+      }
+    },
+    "A008": {
+      "label": "squat_jump",
+      "glb": "261110_B008_T002_SHG.glb",
+      "metrics_by_view": {
+        "side": [
+          "depth",
+          "knee_min",
+          "hip_min",
+          "curve_dist"
+        ],
+        "diag": [
+          "depth",
+          "knee_min",
+          "hip_min",
+          "curve_dist"
+        ],
+        "front": [
+          "depth",
+          "knee_spread_bottom"
+        ]
+      },
+      "rules": {
+        "depth": {
+          "lo": null,
+          "hi": 0.55
+        },
+        "knee_spread_bottom": {
+          "lo": 0.8,
+          "hi": null
+        }
+      },
+      "rules_note": "정석 정의(제안값): 서 있을 때 다리 높이의 55% 이하까지 앉기, 앉은 순간 무릎 간격 ≥ 발목 간격의 80%(KASR, 무릎이 안으로 무너지지 않기)"
+    }
+  },
+  "standard": {
+    "k_std": 2.5,
+    "min_samples": 5,
+    "min_halfwidth": {
+      "knee_min": 8.0,
+      "hip_min": 8.0,
+      "elbow_min": 10.0,
+      "depth": 0.08,
+      "body_line_min": 0.1,
+      "body_line_max": 0.1,
+      "duration_s": 0.6,
+      "curve_dist": 6.0,
+      "knee_spread_bottom": 0.15
+    },
+    "low_conf_check_ratio": 0.3,
+    "max_halfwidth": {
+      "knee_min": 20.0,
+      "hip_min": 20.0,
+      "elbow_min": 25.0,
+      "depth": 0.2,
+      "body_line_min": 0.25,
+      "body_line_max": 0.25,
+      "duration_s": 1.5,
+      "curve_dist": 30.0,
+      "knee_spread_bottom": 0.4
+    },
+    "judge_glb_only": false,
+    "min_subjects": 3
+  },
+  "split": {
+    "train": [
+      "S01",
+      "S02"
+    ],
+    "val": [
+      "S03"
+    ],
+    "test": []
+  }
+}
