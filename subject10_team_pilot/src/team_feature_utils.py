@@ -355,8 +355,10 @@ def front_leg_series(seq, kp_conf: float = 0.50, tol: float = 0.35):
         A = np.where(left_front, AL2, AR2)
         S = np.where(left_front, SL, SR)
         knee, hip = _angle3(H, K, A), _angle3(S, H, K)
-        ok = ((np.abs(dist(K, A) / r_shin - 1) <= tol)
-              & (np.abs(dist(H, K) / r_thigh - 1) <= tol))
+        # 측면 런지 맨 아래 자세에서는 정상이어도 앞 정강이가 서 있을 때의 0.56~0.73배로 짧게 잡힘 (EXT_S12·S15)
+        # 관절점 붕괴(앞무릎이 발목에 붙음)는 0.10~0.30배 (EXT_S07, S12 2회) → 0.45로 구분
+        shin_r, thigh_r = dist(K, A) / r_shin, dist(H, K) / r_thigh
+        ok = (shin_r >= 0.45) & (shin_r <= 1.6) & (thigh_r >= 0.5) & (thigh_r <= 1.6)
     knee[~ok] = np.nan
     hip[~ok] = np.nan
 

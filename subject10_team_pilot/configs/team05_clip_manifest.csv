@@ -1,4 +1,4 @@
-﻿clip_id,subject_id,action_id,action_label,take_id,view,view_deg,form_label,source_type,video_file,split,review_status,note
+clip_id,subject_id,action_id,action_label,take_id,view,view_deg,form_label,source_type,video_file,split,review_status,note
 T05_S01_A001_T01_front,S01,A001,burpee,T01,front,0,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A001_T01_front.mp4,train,PASS,반복 영상 2회 - 1회 단위 판정
 T05_S01_A001_T01_side,S01,A001,burpee,T01,side,90,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A001_T01_side.mp4,train,PASS,반복 영상 2회 - 1회 단위 판정
 T05_S01_A006_T01_front,S01,A006,plank_kick_through,T01,front,0,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A006_T01_front.mp4,train,EXCLUDE,프로젝트 동작 범위 제외 (버피·스쿼트점프·런지 3동작 확정)
@@ -21,3 +21,7 @@ EXT_S08_A004_T01_diag,EXT_S08,A004,lunge,T01,diag,45,OK,EXT,data/team_projects/t
 EXT_S09_A004_T01_diag,EXT_S09,A004,lunge,T01,diag,45,OK,EXT,data/team_projects/team05/ext/videos/EXT_S09_A004_T01_diag.mp4,test_ext,PASS,반복 영상 7회 - 1회 단위 판정
 EXT_S10_A008_T01_side,EXT_S10,A008,squat_jump,T01,side,90,OK,EXT,data/team_projects/team05/ext/videos/EXT_S10_A008_T01_side.mp4,test_ext,PASS,반복 영상 4회 - 1회 단위 판정
 EXT_S11_A001_T01_side,EXT_S11,A001,burpee,T01,side,90,OK,EXT,data/team_projects/team05/ext/videos/EXT_S11_A001_T01_side.mp4,test_ext,PASS,여러 사람 검출 - overlay 확인 결과 대상 인물 유지 (2026-11-17)
+EXT_S12_A004_T01_side,EXT_S12,A004,lunge,T01,side,90,OK,EXT,data/team_projects/team05/ext/videos/EXT_S12_A004_T01_side.mp4,test_ext,PASS,런지 측면. 2회차 앞다리 관절점 붕괴 → CHECK
+EXT_S13_A004_T01_side,EXT_S13,A004,lunge,T01,side,90,OK,EXT,data/team_projects/team05/ext/videos/EXT_S13_A004_T01_side.mp4,test_ext,PASS,앞 정강이 짧게 잡혀(길이비 0.37~0.40) 1·3회 CHECK
+EXT_S14_A004_T01_side,EXT_S14,A004,lunge,T01,side,90,OK,EXT,data/team_projects/team05/ext/videos/EXT_S14_A004_T01_side.mp4,test_ext,EXCLUDE,덤벨 사용(맨몸운동 범위 밖) + 덤벨이 앞무릎을 가림 → 앞무릎 53~58° 과소 측정 (육안 약 90°)
+EXT_S15_A004_T01_side,EXT_S15,A004,lunge,T01,side,90,OK,EXT,data/team_projects/team05/ext/videos/EXT_S15_A004_T01_side.mp4,test_ext,PASS,런지 측면
