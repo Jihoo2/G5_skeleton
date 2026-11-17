@@ -25,3 +25,7 @@ reports/team_projects/
 
 # 윈도우 복사 부산물
 *:Zone.Identifier
+
+# 백업 파일
+*.bak
+*.bak.csv

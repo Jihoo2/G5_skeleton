@@ -1,23 +1,23 @@
-﻿clip_id,subject_id,action_id,action_label,take_id,view,view_deg,form_label,source_type,video_file,split,review_status,note
-T05_S01_A001_T01_front,S01,A001,burpee,T01,front,0,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A001_T01_front.mp4,train,PENDING,
-T05_S01_A001_T01_side,S01,A001,burpee,T01,side,90,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A001_T01_side.mp4,train,PENDING,
-T05_S01_A006_T01_front,S01,A006,plank_kick_through,T01,front,0,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A006_T01_front.mp4,train,PENDING,
-T05_S01_A006_T01_side,S01,A006,plank_kick_through,T01,side,90,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A006_T01_side.mp4,train,PENDING,
-T05_S01_A008_T01_front,S01,A008,squat_jump,T01,front,0,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A008_T01_front.mp4,train,PENDING,
-T05_S01_A008_T01_side,S01,A008,squat_jump,T01,side,90,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A008_T01_side.mp4,train,PENDING,
-T05_S02_A001_T01_diag,S02,A001,burpee,T01,diag,45,OK,RGB,data/team_projects/team05/rgb/videos/T05_S02_A001_T01_diag.mp4,train,PENDING,
-T05_S02_A004_T01_diag,S02,A004,lunge,T01,diag,45,OK,RGB,data/team_projects/team05/rgb/videos/T05_S02_A004_T01_diag.mp4,train,PENDING,
-T05_S02_A008_T01_front,S02,A008,squat_jump,T01,front,0,OK,RGB,data/team_projects/team05/rgb/videos/T05_S02_A008_T01_front.mp4,train,PENDING,
-T05_S03_A001_T01_front,S03,A001,burpee,T01,front,0,OK,RGB,data/team_projects/team05/rgb/videos/T05_S03_A001_T01_front.mp4,val,PENDING,
-T05_S03_A004_T01_front,S03,A004,lunge,T01,front,0,OK,RGB,data/team_projects/team05/rgb/videos/T05_S03_A004_T01_front.mp4,val,PENDING,
-T05_S03_A008_T01_front,S03,A008,squat_jump,T01,front,0,NG,RGB,data/team_projects/team05/rgb/videos/T05_S03_A008_T01_front.mp4,val,PENDING,
-EXT_S01_A001_T01_side,EXT_S01,A001,burpee,T01,side,90,OK,EXT,data/team_projects/team05/ext/videos/EXT_S01_A001_T01_side.mp4,test_ext,PENDING,
-EXT_S02_A001_T01_front,EXT_S02,A001,burpee,T01,front,0,OK,EXT,data/team_projects/team05/ext/videos/EXT_S02_A001_T01_front.mp4,test_ext,PENDING,
-EXT_S04_A008_T01_diag,EXT_S04,A008,squat_jump,T01,diag,45,OK,EXT,data/team_projects/team05/ext/videos/EXT_S04_A008_T01_diag.mp4,test_ext,PENDING,
-EXT_S05_A008_T01_front,EXT_S05,A008,squat_jump,T01,front,0,OK,EXT,data/team_projects/team05/ext/videos/EXT_S05_A008_T01_front.mp4,test_ext,PENDING,
-EXT_S06_A008_T01_front,EXT_S06,A008,squat_jump,T01,front,0,OK,EXT,data/team_projects/team05/ext/videos/EXT_S06_A008_T01_front.mp4,test_ext,PENDING,
-EXT_S07_A004_T01_side,EXT_S07,A004,lunge,T01,side,90,OK,EXT,data/team_projects/team05/ext/videos/EXT_S07_A004_T01_side.mp4,test_ext,PENDING,
-EXT_S08_A004_T01_diag,EXT_S08,A004,lunge,T01,diag,45,OK,EXT,data/team_projects/team05/ext/videos/EXT_S08_A004_T01_diag.mp4,test_ext,PENDING,
-EXT_S09_A004_T01_diag,EXT_S09,A004,lunge,T01,diag,45,OK,EXT,data/team_projects/team05/ext/videos/EXT_S09_A004_T01_diag.mp4,test_ext,PENDING,
-EXT_S10_A008_T01_side,EXT_S10,A008,squat_jump,T01,side,90,OK,EXT,data/team_projects/team05/ext/videos/EXT_S10_A008_T01_side.mp4,test_ext,PENDING,
-EXT_S11_A001_T01_side,EXT_S11,A001,burpee,T01,side,90,OK,EXT,data/team_projects/team05/ext/videos/EXT_S11_A001_T01_side.mp4,test_ext,PENDING,
+clip_id,subject_id,action_id,action_label,take_id,view,view_deg,form_label,source_type,video_file,split,review_status,note
+T05_S01_A001_T01_front,S01,A001,burpee,T01,front,0,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A001_T01_front.mp4,train,PASS,반복 영상 2회 - 1회 단위 판정
+T05_S01_A001_T01_side,S01,A001,burpee,T01,side,90,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A001_T01_side.mp4,train,PASS,반복 영상 2회 - 1회 단위 판정
+T05_S01_A006_T01_front,S01,A006,plank_kick_through,T01,front,0,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A006_T01_front.mp4,train,EXCLUDE,프로젝트 동작 범위 제외 (버피·스쿼트점프·런지 3동작 확정)
+T05_S01_A006_T01_side,S01,A006,plank_kick_through,T01,side,90,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A006_T01_side.mp4,train,EXCLUDE,프로젝트 동작 범위 제외 (버피·스쿼트점프·런지 3동작 확정)
+T05_S01_A008_T01_front,S01,A008,squat_jump,T01,front,0,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A008_T01_front.mp4,train,PASS,반복 영상 5회 - 1회 단위 판정
+T05_S01_A008_T01_side,S01,A008,squat_jump,T01,side,90,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A008_T01_side.mp4,train,PASS,반복 영상 5회 - 1회 단위 판정
+T05_S02_A001_T01_diag,S02,A001,burpee,T01,diag,45,OK,RGB,data/team_projects/team05/rgb/videos/T05_S02_A001_T01_diag.mp4,train,PASS,반복 영상 2회 - 1회 단위 판정
+T05_S02_A004_T01_diag,S02,A004,lunge,T01,diag,45,OK,RGB,data/team_projects/team05/rgb/videos/T05_S02_A004_T01_diag.mp4,train,PASS,반복 영상 3회 - 1회 단위 판정
+T05_S02_A008_T01_front,S02,A008,squat_jump,T01,front,0,OK,RGB,data/team_projects/team05/rgb/videos/T05_S02_A008_T01_front.mp4,train,PASS,반복 영상 5회 - 1회 단위 판정
+T05_S03_A001_T01_front,S03,A001,burpee,T01,front,0,OK,RGB,data/team_projects/team05/rgb/videos/T05_S03_A001_T01_front.mp4,val,PASS,여러 사람 검출 - overlay 확인 결과 대상 인물 유지 (2026-11-17)
+T05_S03_A004_T01_front,S03,A004,lunge,T01,front,0,OK,RGB,data/team_projects/team05/rgb/videos/T05_S03_A004_T01_front.mp4,val,PASS,반복 영상 3회 - 1회 단위 판정
+T05_S03_A008_T01_front,S03,A008,squat_jump,T01,front,0,NG,RGB,data/team_projects/team05/rgb/videos/T05_S03_A008_T01_front.mp4,val,PASS,반복 영상 7회 - 1회 단위 판정
+EXT_S01_A001_T01_side,EXT_S01,A001,burpee,T01,side,90,OK,EXT,data/team_projects/team05/ext/videos/EXT_S01_A001_T01_side.mp4,test_ext,PASS,여러 사람 검출 - overlay 확인 결과 대상 인물 유지 (2026-11-17)
+EXT_S02_A001_T01_front,EXT_S02,A001,burpee,T01,front,0,OK,EXT,data/team_projects/team05/ext/videos/EXT_S02_A001_T01_front.mp4,test_ext,PASS,반복 영상 2회 - 1회 단위 판정
+EXT_S04_A008_T01_diag,EXT_S04,A008,squat_jump,T01,diag,45,OK,EXT,data/team_projects/team05/ext/videos/EXT_S04_A008_T01_diag.mp4,test_ext,PASS,반복 영상 9회 - 1회 단위 판정
+EXT_S05_A008_T01_front,EXT_S05,A008,squat_jump,T01,front,0,OK,EXT,data/team_projects/team05/ext/videos/EXT_S05_A008_T01_front.mp4,test_ext,PASS,반복 영상 9회 - 1회 단위 판정
+EXT_S06_A008_T01_front,EXT_S06,A008,squat_jump,T01,front,0,OK,EXT,data/team_projects/team05/ext/videos/EXT_S06_A008_T01_front.mp4,test_ext,PASS,반복 영상 6회 - 1회 단위 판정
+EXT_S07_A004_T01_side,EXT_S07,A004,lunge,T01,side,90,OK,EXT,data/team_projects/team05/ext/videos/EXT_S07_A004_T01_side.mp4,test_ext,PASS,반복 영상 3회 - 1회 단위 판정
+EXT_S08_A004_T01_diag,EXT_S08,A004,lunge,T01,diag,45,OK,EXT,data/team_projects/team05/ext/videos/EXT_S08_A004_T01_diag.mp4,test_ext,PASS,반복 영상 5회 - 1회 단위 판정
+EXT_S09_A004_T01_diag,EXT_S09,A004,lunge,T01,diag,45,OK,EXT,data/team_projects/team05/ext/videos/EXT_S09_A004_T01_diag.mp4,test_ext,PASS,반복 영상 7회 - 1회 단위 판정
+EXT_S10_A008_T01_side,EXT_S10,A008,squat_jump,T01,side,90,OK,EXT,data/team_projects/team05/ext/videos/EXT_S10_A008_T01_side.mp4,test_ext,PASS,반복 영상 4회 - 1회 단위 판정
+EXT_S11_A001_T01_side,EXT_S11,A001,burpee,T01,side,90,OK,EXT,data/team_projects/team05/ext/videos/EXT_S11_A001_T01_side.mp4,test_ext,PASS,여러 사람 검출 - overlay 확인 결과 대상 인물 유지 (2026-11-17)

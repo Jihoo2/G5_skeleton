@@ -97,7 +97,12 @@ def main() -> None:
             tpl_path = p["reference"] / f"{aid}_{view}_template.json"
             glb_m = json.loads(tpl_path.read_text(encoding="utf-8"))["metrics"] if tpl_path.exists() else {}
             sub = reps[(reps["action_id"] == aid) & (reps["view"] == view)] if len(reps) else pd.DataFrame()
-            if sub.empty and not glb_m:
+            # 팀 영상·GLB가 없어도 이 각도에 적용되는 정석 규칙이 있으면 규칙만으로 기준 생성
+            has_rule = any(
+                r and (not r.get("views") or view_group(view, cfg) in r["views"])
+                for r in a.get("rules", {}).values()
+            )
+            if sub.empty and not glb_m and not has_rule:
                 continue
             metrics = {}
             for m in metrics_for(a, view, cfg):
