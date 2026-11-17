@@ -29,3 +29,4 @@ reports/team_projects/
 # 백업 파일
 *.bak
 *.bak.csv
+*.bak*
