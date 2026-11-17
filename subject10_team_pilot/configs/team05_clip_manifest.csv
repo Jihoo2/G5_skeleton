@@ -1,4 +1,4 @@
-clip_id,subject_id,action_id,action_label,take_id,view,view_deg,form_label,source_type,video_file,split,review_status,note
+﻿clip_id,subject_id,action_id,action_label,take_id,view,view_deg,form_label,source_type,video_file,split,review_status,note
 T05_S01_A001_T01_front,S01,A001,burpee,T01,front,0,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A001_T01_front.mp4,train,PASS,반복 영상 2회 - 1회 단위 판정
 T05_S01_A001_T01_side,S01,A001,burpee,T01,side,90,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A001_T01_side.mp4,train,PASS,반복 영상 2회 - 1회 단위 판정
 T05_S01_A006_T01_front,S01,A006,plank_kick_through,T01,front,0,OK,RGB,data/team_projects/team05/rgb/videos/T05_S01_A006_T01_front.mp4,train,EXCLUDE,프로젝트 동작 범위 제외 (버피·스쿼트점프·런지 3동작 확정)
