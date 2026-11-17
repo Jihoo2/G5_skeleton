@@ -128,6 +128,17 @@ def main() -> None:
 
     reps_df = pd.DataFrame(rep_rows)
     clips_df = pd.DataFrame(clip_rows)
+    # 회차 단위 정답 라벨: 팀원이 확인(checked_by)한 행만 사용, 없으면 Clip 라벨(form_label)
+    if len(reps_df):
+        reps_df["rep_label"] = reps_df["form_label"]
+        lab_path = ROOT / "configs" / f"{cfg['team_id']}_rep_labels.csv"
+        if lab_path.exists():
+            lab = pd.read_csv(lab_path, dtype=str).fillna("")
+            lab = lab[lab["label"].isin(["OK", "NG"]) & (lab["checked_by"].str.strip() != "")]
+            key = {(c, int(n)): l for c, n, l in zip(lab["clip_id"], lab["rep"], lab["label"])}
+            reps_df["rep_label"] = [key.get((c, int(n)), f) for c, n, f
+                                    in zip(reps_df["clip_id"], reps_df["rep"], reps_df["form_label"])]
+            print(f"회차 라벨 적용: {len(key)}개 ({lab_path.name})")
     reps_df.to_csv(p["judgments"] / "rep_judgments.csv", index=False, encoding="utf-8-sig")
     clips_df.to_csv(p["tables"] / "judgment_summary.csv", index=False, encoding="utf-8-sig")
 
@@ -153,10 +164,12 @@ def main() -> None:
             line += f" | NG 라벨 {len(ngl)}개 중 검출 {int((ngl['verdict'] == 'NG').sum())}개"
         line += f" | CHECK {int((g['verdict'] == 'CHECK').sum())}개"
         if len(reps_df):
-            rr = reps_df[(reps_df["split"] == split) & (reps_df["form_label"] == "OK")
-                         & (reps_df["verdict"] != "CHECK")]
-            if len(rr):
-                line += f" | 1회 단위: OK 라벨 {len(rr)}회 중 NG {int((rr['verdict'] == 'NG').sum())}회"
+            rr = reps_df[(reps_df["split"] == split) & (reps_df["verdict"] != "CHECK")]
+            ok_r, ng_r = rr[rr["rep_label"] == "OK"], rr[rr["rep_label"] == "NG"]
+            if len(ok_r):
+                line += f" | 1회 단위: 정석 {len(ok_r)}회 중 오판정 {int((ok_r['verdict'] == 'NG').sum())}회"
+            if len(ng_r):
+                line += f", 틀린 자세 {len(ng_r)}회 중 검출 {int((ng_r['verdict'] == 'NG').sum())}회"
         print(line)
 
 
