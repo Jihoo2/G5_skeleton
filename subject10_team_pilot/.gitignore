@@ -1,0 +1,27 @@
+.venv/
+__pycache__/
+data/
+reports/
+*.mp4
+*.glb
+*.pt
+# 가상환경·캐시
+.venv/
+__pycache__/
+*.pyc
+
+# 모델 가중치
+*.pt
+
+# 원본 데이터 (팀원 영상·외부 영상·VICON)
+data/
+*.mp4
+*.mov
+*.glb
+*.fbx
+
+# 자동 생성 결과 (Keypoint·Sequence·overlay)
+reports/team_projects/
+
+# 윈도우 복사 부산물
+*:Zone.Identifier
