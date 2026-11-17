@@ -199,19 +199,38 @@ def main() -> None:
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(figsize=(7, 4.2))
+        from matplotlib import font_manager
+
+        # 한글 폰트: 윈도우 맑은 고딕(WSL에서 바로 읽음) → 나눔고딕 → 없으면 영어 라벨
+        ko = False
+        for fp in ["/mnt/c/Windows/Fonts/malgun.ttf",
+                   "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"]:
+            if Path(fp).exists():
+                font_manager.fontManager.addfont(fp)
+                plt.rcParams["font.family"] = font_manager.FontProperties(fname=fp).get_name()
+                plt.rcParams["axes.unicode_minus"] = False  # 마이너스 기호 깨짐 방지
+                ko = True
+                break
+        names_ko = {"shallow": "덜 앉기 (스쿼트 점프, 움직임 폭 축소)",
+                    "knee_in": "무릎 모으기 (스쿼트 점프 정면)",
+                    "hip_sag": "허리 처짐 (버피 측면, 몸통 길이 대비)",
+                    "hip_pike": "엉덩이 들림 (버피 측면, 몸통 길이 대비)"}
+
+        fig, ax = plt.subplots(figsize=(8, 4.8))
         for name in g["experiment"].unique():
             sub = g[g["experiment"] == name]
-            ax.plot(sub["strength"] * 100, sub["ng_rate"] * 100, marker="o", label=EXPERIMENTS[name]["plot"])
-        ax.set_xlabel("perturbation strength (%)")
-        ax.set_ylabel("reps judged NG (%)")
+            ax.plot(sub["strength"] * 100, sub["ng_rate"] * 100, marker="o",
+                    label=names_ko[name] if ko else EXPERIMENTS[name]["plot"])
+        ax.set_xlabel("변형 강도 (%)" if ko else "perturbation strength (%)")
+        ax.set_ylabel("NG로 판정된 회차 비율 (%)" if ko else "reps judged NG (%)")
+        ax.set_title("정석 영상을 변형했을 때 NG 검출률 (팀05)" if ko
+                     else "NG detection vs. perturbation strength (team05)")
         ax.set_ylim(-5, 105)
         ax.grid(alpha=0.3)
-        ax.legend()
-        ax.set_title("NG detection vs. perturbation strength (team05)")
+        ax.legend(loc="lower right")
         fig.tight_layout()
         fig.savefig(p["tables"] / "ng_sensitivity.png", dpi=150)
-        print(f"\n그래프: {p['tables'] / 'ng_sensitivity.png'}")
+        print(f"\n그래프: {p['tables'] / 'ng_sensitivity.png'} ({'한글' if ko else '영어'} 라벨)")
     except Exception as e:  # 그래프는 선택 사항
         print(f"(그래프 생략: {e})")
     print(f"저장: {p['tables'] / 'ng_sensitivity_summary.csv'}")
