@@ -293,12 +293,87 @@ def near_side(seq: pd.DataFrame) -> str:
     return "L" if l >= r else "R"
 
 
+def _pts(seq, j, kp_conf):
+    n = COCO_KEYPOINT_NAMES[j]
+    pt = seq[[f"{n}_x", f"{n}_y"]].to_numpy(dtype=float).copy()
+    c = seq[f"{n}_conf"].to_numpy(dtype=float)
+    pt[c < kp_conf] = np.nan  # NaN(VICON)은 비교 결과 False → 유지
+    return pt
+
+
+def _angle3(a, b, c):
+    ba, bc = a - b, c - b
+    den = np.linalg.norm(ba, axis=1) * np.linalg.norm(bc, axis=1)
+    with np.errstate(all="ignore"):
+        cos = np.sum(ba * bc, axis=1) / den
+        ang = np.degrees(np.arccos(np.clip(cos, -1, 1)))
+    ang[~(den > 1e-8)] = np.nan
+    return ang
+
+
+def front_leg_series(seq, kp_conf: float = 0.50, tol: float = 0.35):
+    # 런지 측면 전용: 앞다리의 무릎·고관절 각도
+    # 측면에서는 두 다리가 겹쳐 YOLO가 무릎·발목을 반대 다리 것으로 잡는 일이 있음 → 다리 길이로 검사·보정
+    P = {s: [_pts(seq, j, kp_conf) for j in SIDE_JOINTS[s]] for s in ("L", "R")}
+    SL, _, _, HL, KL, AL = P["L"]
+    SR, _, _, HR, KR, AR = P["R"]
+
+    def dist(a, b):
+        return np.linalg.norm(a - b, axis=1)
+
+    with np.errstate(all="ignore"):
+        shin_l, shin_r = dist(KL, AL), dist(KR, AR)
+        thigh_l, thigh_r = dist(HL, KL), dist(HR, KR)
+        straight = ((seq["left_knee_angle"].to_numpy(dtype=float) > 160)
+                    & (seq["right_knee_angle"].to_numpy(dtype=float) > 160))
+
+        def ref(a, b):  # 서 있는 Frame의 다리 길이 중앙값 = 이 사람의 기준 길이
+            v = np.concatenate([a[straight], b[straight]])
+            v = v[np.isfinite(v)]
+            if len(v) < 10:
+                v = np.concatenate([a, b])
+                v = v[np.isfinite(v)]
+            return float(np.median(v)) if len(v) else np.nan
+
+        r_shin, r_thigh = ref(shin_l, shin_r), ref(thigh_l, thigh_r)
+
+        # 발목이 반대 다리 것으로 잡힌 Frame: 발목을 바꿨을 때 정강이 길이가 기준에 훨씬 가까우면 교환
+        keep = np.abs(shin_l - r_shin) + np.abs(shin_r - r_shin)
+        swap = np.abs(dist(KL, AR) - r_shin) + np.abs(dist(KR, AL) - r_shin)
+        sw = swap < keep * 0.7
+        AL2, AR2 = AL.copy(), AR.copy()
+        AL2[sw], AR2[sw] = AR[sw], AL[sw]
+
+        # 진행 방향 = 코가 골반 중심의 어느 쪽에 있는가 (Clip 중앙값으로 고정)
+        nose = _pts(seq, 0, kp_conf)
+        d = np.nanmedian(nose[:, 0] - (HL[:, 0] + HR[:, 0]) / 2)
+        direction = 1.0 if (not np.isfinite(d) or d >= 0) else -1.0
+        left_front = ((AL2[:, 0] - AR2[:, 0]) * direction > 0)[:, None]
+
+        H = np.where(left_front, HL, HR)
+        K = np.where(left_front, KL, KR)
+        A = np.where(left_front, AL2, AR2)
+        S = np.where(left_front, SL, SR)
+        knee, hip = _angle3(H, K, A), _angle3(S, H, K)
+        ok = ((np.abs(dist(K, A) / r_shin - 1) <= tol)
+              & (np.abs(dist(H, K) / r_thigh - 1) <= tol))
+    knee[~ok] = np.nan
+    hip[~ok] = np.nan
+
+    def roll(x):  # NaN을 퍼뜨리지 않는 이동 중앙값
+        return pd.Series(x).rolling(5, center=True, min_periods=3).median().to_numpy()
+
+    return roll(knee), roll(hip)
+
+
 def resolved_series(seq: pd.DataFrame, view: str, kp_conf: float = 0.50,
                     combine: str = "mean") -> dict:
     """1회 측정에 쓸 시계열. Confidence가 낮은 관절이 들어간 각도는 NaN 처리.
     combine="mean": 측면은 카메라 쪽 다리·팔만, 정면·사선은 좌우 평균 (양발이 같이 움직이는 동작)
     combine="min" : 모든 각도에서 좌우 중 작은 각도 = 앞으로 내디딘 다리 (런지처럼 다리가 앞뒤로 갈리는 동작,
                     번갈아 런지면 앞다리가 매번 바뀌므로 '작은 쪽'을 앞다리로 봄)"""
+    if combine == "front" and view != "side":
+        combine = "min"  # 앞다리 판별은 측면 전용 (사선·정면은 원근 때문에 다리 길이 검사가 맞지 않음)
     side = near_side(seq) if (view == "side" and combine == "mean") else "LR"
     sides = ["L", "R"] if side == "LR" else [side]
 
@@ -325,6 +400,8 @@ def resolved_series(seq: pd.DataFrame, view: str, kp_conf: float = 0.50,
         agg = np.nanmin if (combine == "min" and k in ("knee", "hip")) else np.nanmean
         with np.errstate(all="ignore"):
             res[k] = smooth(agg(arr, axis=0)) if np.isfinite(arr).any() else np.full(arr.shape[1], np.nan)
+    if combine == "front":
+        res["knee"], res["hip"] = front_leg_series(seq, kp_conf)
     # 무릎 벌어짐 = 두 무릎 가로 간격 / 두 발목 가로 간격 (정면용, 1보다 작으면 무릎이 안쪽으로 모임)
     def xcol(j):
         v = seq[f"{COCO_KEYPOINT_NAMES[j]}_x"].to_numpy(dtype=float).copy()
@@ -411,6 +488,12 @@ def rep_metrics(seq: pd.DataFrame, view: str, fps: float = 30.0, kp_conf: float 
             knee_spread_bottom=_bottom_median(ser["knee_spread"][seg], ser["leg_ratio"][seg]),
             low_conf_ratio=round(low_ratio, 3),
         ))
+        if combine == "front" and view == "side":
+            lr, kb = ser["leg_ratio"][seg], ser["knee"][seg]
+            if np.isfinite(lr).any():
+                m = lr <= np.nanpercentile(lr, 20)
+                if np.mean(~np.isfinite(kb[m])) > 0.5:  # 관절점 뒤섞임 → 관측 문제
+                    rows[-1].update(knee_min=np.nan, hip_min=np.nan, low_conf_ratio=1.0)
         curves.append({k: resample(ser[k][seg]) for k in ("knee", "hip", "leg_ratio")})
     return pd.DataFrame(rows), curves
 

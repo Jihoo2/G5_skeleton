@@ -54,7 +54,7 @@
         ],
         "front": []
       },
-      "leg_combine": "min",
+      "leg_combine": "front",
       "rules": {
         "knee_min": {
           "lo": 60.0,
