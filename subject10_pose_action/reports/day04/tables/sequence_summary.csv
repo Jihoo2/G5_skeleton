@@ -1,0 +1,7 @@
+﻿action_id,action_label,rows,pose_ok_rows,pose_ok_ratio,feature_ok_rows,feature_ok_ratio,mean_keypoint_conf,mean_low_keypoint_count,mean_adjacent_feature_change,last_time_sec
+A001,bend_return,43,43,1.0,43,1.0,0.9582,0.209,0.301192,3.36
+A004,drink_return,60,60,1.0,60,1.0,0.9538,0.567,0.165168,4.72
+A002,leg_raise_lower,63,63,1.0,63,1.0,0.9678,0.079,0.339333,4.96
+A005,sit_stand,51,51,1.0,51,1.0,0.9742,0.0,0.168046,4.0
+A003,walk_turn_walk,133,133,1.0,133,1.0,0.8883,1.669,29.680606,10.56
+A006,wave,63,63,1.0,63,1.0,0.9724,0.0,0.307155,4.96
