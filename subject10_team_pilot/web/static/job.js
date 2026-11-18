@@ -119,10 +119,24 @@ function chart(e) {
   let series, lo, hi, unit, guide = null;
   if (front) {
     // 정면: 굽힘 각도는 원근 때문에 거의 안 변함 → 판정에 쓰는 '다리 높이'(서 있을 때 = 1)로 비교
-    const rel = arr => { if (!arr) return null; const m = Math.max(...arr.filter(x => x !== null));
-      return arr.map(x => x === null ? null : x / m); };
-    series = [[rel(e.curve.leg_ratio), "#4c9dff", 1], [rel(e.template && e.template.leg_ratio), "#4c9dff", .35]];
-    lo = 0; hi = 1.05; unit = x => x.toFixed(1);
+    // 내 곡선: 최저점이 판정에 쓴 깊이(e.depth)와 같아지도록 맞춤
+    //   (회차 구간 안의 최고점으로 나누면, 영상이 앉는 중에 시작한 회차는 실제보다 덜 내려간 것처럼 보임)
+    const fin = arr => (arr || []).filter(x => x !== null);
+    const mine = () => {
+      const a = e.curve.leg_ratio, mn = Math.min(...fin(a));
+      if (!a || !fin(a).length) return null;
+      const k = (e.depth !== null && e.depth !== undefined && mn > 0) ? e.depth / mn : 1 / Math.max(...fin(a));
+      return a.map(x => x === null ? null : x * k);
+    };
+    const tpl = () => {  // 정석(GLB)은 서 있는 자세에서 시작하므로 최고점 = 서 있을 때
+      const a = e.template && e.template.leg_ratio;
+      if (!a || !fin(a).length) return null;
+      const m = Math.max(...fin(a));
+      return a.map(x => x === null ? null : x / m);
+    };
+    series = [[mine(), "#4c9dff", 1], [tpl(), "#4c9dff", .35]];
+    const top = Math.max(1.05, ...series.flatMap(x => fin(x[0])));
+    lo = 0; hi = top + 0.05; unit = x => x.toFixed(2);
     guide = TH[R.meta.action];
     document.getElementById("charttitle").textContent = `${e.rep}회 다리 높이 — 내 동작 vs VICON 정석 (정면)`;
     document.getElementById("legend").innerHTML =
