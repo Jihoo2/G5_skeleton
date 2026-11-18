@@ -1,0 +1,28 @@
+{
+  "train_subjects": [
+    "S01",
+    "S02"
+  ],
+  "val_subjects": [
+    "S03"
+  ],
+  "val_ext_subjects": [
+    "EXT_S01",
+    "EXT_S02",
+    "EXT_S04",
+    "EXT_S05",
+    "EXT_S06",
+    "EXT_S07",
+    "EXT_S08",
+    "EXT_S09",
+    "EXT_S10",
+    "EXT_S11",
+    "EXT_S12",
+    "EXT_S13",
+    "EXT_S14",
+    "EXT_S15"
+  ],
+  "test_subjects": [],
+  "test_ext_subjects": [],
+  "note": "team_15가 configs/team_project.json 의 split 에서 자동 생성. 사람 배정은 team_project.json 에서 고치세요."
+}
