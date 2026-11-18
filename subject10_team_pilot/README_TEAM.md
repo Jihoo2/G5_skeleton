@@ -28,6 +28,14 @@ data/team_projects/team05/{rgb/videos, ext/videos, vicon}
 | 8 | `team_08_fit_standard.py` | (팀) 정석 허용 범위 | `standards/<동작>_<각도>.json` |
 | 9 | `team_09_judge.py` | 6일차 평가 자리 | `judgments/rep_judgments.csv`, `tables/judgment_summary.csv` (기본 val·val_ext, test 계열은 `--final`) |
 | 10 | `team_10_render_overlay.py --clip <id>` | 10일차 실패 분석 | `overlays/<clip_id>_overlay.mp4` (뼈대 + 1회 판정 표시, 선택 실행) |
+| 12 | `team_12_export_day05_keypoints.py` | 5일차 26번 | `day05/keypoints/<subject>/<action>/<clip>.csv` (1행=1Frame, 95열), `day05/manifests/keypoint_dataset_manifest.csv` |
+| 13 | `team_13_keypoint_qa.py` | 5일차 27번 | `day05/qa/keypoint_clip_qa.csv`, `keypoint_clip_review.csv` (human_decision ← Manifest review_status) |
+| 14 | `team_14_build_approved_manifest.py` | 5일차 28·29번 | `day05/manifests/approved_clip_manifest.csv` |
+| 15 | `team_15_build_subject_split.py` | 5일차 30번 | `configs/day05_subject_split.json`(자동 생성), `day05/splits/{train,val,val_ext,test,test_ext}.csv`, `day05/tables/split_coverage.csv` |
+| 16 | `team_16_check_split_leakage.py` | 5일차 31번 | Subject·Clip·원본 영상 overlap 검사 (FAIL 시 종료 코드 1) |
+| 17 | `team_17_demo_frame_split_leakage.py` | 5일차 32번 | Random Frame Split 비교 (`day05/tables/random_frame_split_demo.csv`) |
+
+5일차 형식 한 번에: `bash scripts/run_day05.sh` → 결과 폴더 `reports/team_projects/team05/day05/`
 
 ```bash
 cd ~/ai_vision/subject10_pose_action
