@@ -258,7 +258,9 @@ def seq_fps(seq: pd.DataFrame, default: float = 30.0) -> float:
     t, f = t[ok], f[ok]
     span = t[-1] - t[0]
     # 처음~끝 전체 간격으로 계산 (time_sec가 소수 3자리로 반올림돼 있어 Frame 간격 중앙값을 쓰면 30fps가 30.3fps로 나옴)
-    return float(round((f[-1] - f[0]) / span, 3)) if span > 0 else default
+    # 소수 2자리로 맞춤: 30fps 영상이 29.999·30.001로 잡히면 1회 구간 경계(0.3초 = 9 Frame,
+    # 0.4초 = 12 Frame)에 정확히 걸린 구간이 들어갔다 빠졌다 함
+    return float(round((f[-1] - f[0]) / span, 2)) if span > 0 else default
 
 
 def smooth(x, k: int = 7):
