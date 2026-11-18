@@ -8,7 +8,11 @@
       shift = 실제 정석 1회 중앙값 − GLB 증강 중앙값
       scale = 실제 IQR / GLB IQR      (실제 표본이 많을 때만, 0.5~2배로 제한)
   를 학습해서 GLB 분포를 실제 카메라 쪽으로 옮깁니다. → "GLB가 기준, 영상은 보정"
-  실제 표본이 없거나 적은 칸은 shift 없이 GLB 분포 그대로 씁니다.
+  보정 조건: 그 칸의 실제 정석 1회 ≥ glb_min_real_reps(5) 이고 사람 ≥ min_subjects(3)
+    (2026-11-18: 한 사람(S01) 영상만으로 보정했더니 EXT_S10 정석 4회가 모두 NG → 사람 수 조건 추가)
+  보정된 칸의 폭 = max(GLB 분포 폭, 실제 사람들 중앙값 ± k_std × 표준편차)
+    → VICON 수행자 1명의 좁은 폭으로 다른 사람을 NG 처리하지 않게
+  실제 표본이 없거나 적은 칸은 shift 없이 GLB 분포 그대로 씁니다(참고용).
 
 허용 범위
   보정된 GLB 분포의 [q, 1−q] 분위(기본 q=0.01) ± 여유(min_halfwidth × margin_ratio)
@@ -88,6 +92,8 @@ def main() -> None:
     q = float(st.get("glb_quantile", 0.01))
     margin_ratio = float(st.get("glb_margin_ratio", 0.5))
     min_real = int(st.get("glb_min_real_reps", 5))
+    min_subj = int(st.get("min_subjects", 3))
+    k_std = float(st["k_std"])
     glb_only_active = bool(st.get("glb_only_active", False))
     mh, mx = st["min_halfwidth"], st.get("max_halfwidth", {})
 
@@ -135,9 +141,10 @@ def main() -> None:
                 n_real = len(rv)
                 n_subj = int(r.loc[r[m].notna(), "subject_id"].nunique()) if n_real else 0
                 g_med = float(np.median(gv))
-                shift = float(np.median(rv) - g_med) if n_real >= min_real else 0.0
+                calibrated = n_real >= min_real and n_subj >= min_subj
+                shift = float(np.median(rv) - g_med) if calibrated else 0.0
                 scale = 1.0
-                if n_real >= 2 * min_real:
+                if calibrated and n_real >= 2 * min_real:
                     g_iqr = np.subtract(*np.percentile(gv, [75, 25]))
                     r_iqr = np.subtract(*np.percentile(rv, [75, 25]))
                     if g_iqr > 1e-9 and r_iqr > 0:
@@ -145,9 +152,12 @@ def main() -> None:
                 cal = (gv - g_med) * scale + g_med + shift
                 margin = mh.get(m, 0.0) * margin_ratio
                 d = DIRECTION.get(m, "both")
-                lo = float(np.quantile(cal, q) - margin) if d in ("lo", "both") else None
-                hi = float(np.quantile(cal, 1 - q) + margin) if d in ("hi", "both") else None
-                calibrated = n_real >= min_real
+                q_lo, q_hi = np.quantile(cal, q), np.quantile(cal, 1 - q)
+                if calibrated:  # GLB 한 사람의 폭보다 실제 사람들 사이의 폭이 넓으면 그쪽을 따름
+                    r_med, r_std = float(np.median(rv)), float(np.std(rv, ddof=1))
+                    q_lo, q_hi = min(q_lo, r_med - k_std * r_std), max(q_hi, r_med + k_std * r_std)
+                lo = float(q_lo - margin) if d in ("lo", "both") else None
+                hi = float(q_hi + margin) if d in ("hi", "both") else None
                 width = ((hi if hi is not None else np.quantile(cal, 1 - q)) -
                          (lo if lo is not None else np.quantile(cal, q))) / 2
                 s = dict(lo=None if lo is None else round(lo, 4), hi=None if hi is None else round(hi, 4),

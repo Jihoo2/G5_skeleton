@@ -36,6 +36,7 @@ data/team_projects/team05/{rgb/videos, ext/videos, vicon}
 | 17 | `team_17_demo_frame_split_leakage.py` | 5일차 32번 | Random Frame Split 비교 (`day05/tables/random_frame_split_demo.csv`) |
 | 18 | `team_18_glb_augment.py` | (포트폴리오) GLB 메인 | `glb_aug/<action>_reps.csv·.npz` — 카메라·체형·속도·YOLO 흔들림을 바꾼 GLB 정석 1회 동작 |
 | 19 | `team_19_calibrate_glb.py` | (포트폴리오) 영상 보정 | `standards_glb/`, `tables/glb_calibration.csv` → `team_09_judge.py --standards glb` |
+| 20 | `team_20_form_model_loso.py` | (포트폴리오) 정석 이상 탐지 모델 | 실제 정석(train+val_ext) 중심 + GLB 증강 보충, 사람 단위 LOSO 평가 → `tables/form_model_loso_summary.csv`, `models/form_model_<action>.npz` |
 
 5일차 형식 한 번에: `bash scripts/run_day05.sh` → 결과 폴더 `reports/team_projects/team05/day05/`
 

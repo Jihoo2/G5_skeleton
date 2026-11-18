@@ -11,6 +11,7 @@
   <action>_reps.npz        같은 순서의 배열 — 모델 학습용
                              curves (n, 3, 48)  : knee, hip, leg_ratio 1회 곡선
                              feat38 (n, 48, 38) : 1회 구간을 48점으로 맞춘 교과 38-D Feature
+                             feat_model (n, 48, 8): team_20 이상 탐지 모델 입력 (src/form_model.py)
   glb_aug_summary.csv      동작 × 각도 × 측정값 분포(p5·중앙값·p95) + 현재 규칙 위반 비율
 화면: 각도별 분포와 "정석 GLB인데 현재 규칙으로 NG가 되는 비율"
       → 이 비율이 큰 규칙은 정석을 부정하므로 경계 재검토 대상
@@ -35,6 +36,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from src.form_model import rep_block, series_frame  # noqa: E402
 from src.glb_augment import glb_coco3d, make_variant_xy, sample_variant  # noqa: E402
 from src.glb_utils import evaluate  # noqa: E402
 from src.team_feature_utils import (  # noqa: E402
@@ -107,7 +109,7 @@ def main() -> None:
         t0 = time.time()
         names, P, _ = evaluate(glb, fps=fps)
         X3 = glb_coco3d(names, P)
-        rows, curves, feats = [], [], []
+        rows, curves, feats, fmodel = [], [], [], []
         for i in range(args.n):
             v = sample_variant(rng, i)
             view = view_group(f"deg{int(round(v.yaw_deg))}", cfg)
@@ -116,15 +118,18 @@ def main() -> None:
             seq = build_frame_features(fid, (fid - 1) / fps, xy, np.full((len(xy), 17), np.nan), view, kp_conf)
             reps, crv = rep_metrics(seq, view, fps, kp_conf, a.get("leg_combine", "mean"))
             F = seq[cols38].to_numpy(float)
+            SER = series_frame(seq, kp_conf)
             for (_, rr), c in zip(reps.iterrows(), crv):
                 rows.append(dict(action_id=aid, action_label=a["label"], view=view,
                                  **v.as_dict(), **rr.to_dict()))
                 curves.append(np.stack([c["knee"], c["hip"], c["leg_ratio"]]))
                 feats.append(resample_block(F[int(rr["start_frame"]) - 1:int(rr["end_frame"])]))
+                fmodel.append(rep_block(SER, rr["start_frame"], rr["end_frame"]))
         df = pd.DataFrame(rows)
         df.to_csv(out_dir / f"{aid}_reps.csv", index=False, encoding="utf-8-sig")
         np.savez_compressed(out_dir / f"{aid}_reps.npz", curves=np.array(curves, dtype=np.float32),
-                            feat38=np.array(feats, dtype=np.float32), feature_names=np.array(cols38))
+                            feat38=np.array(feats, dtype=np.float32), feature_names=np.array(cols38),
+                            feat_model=np.array(fmodel, dtype=np.float32))
         print(f"\n[{aid} {a['label']}] 가상 촬영본 {args.n}개 → 1회 동작 {len(df)}개 ({time.time() - t0:.0f}초)")
 
         for view in ("front", "diag", "side"):
