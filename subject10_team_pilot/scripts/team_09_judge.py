@@ -180,7 +180,7 @@ def main() -> None:
             lab = pd.read_csv(lab_path, dtype=str).fillna("")
             lab = lab[lab["label"].isin(["OK", "NG"]) & (lab["checked_by"].str.strip() != "")]
             key = {(c, int(n)): l for c, n, l in zip(lab["clip_id"], lab["rep"], lab["label"])}
-            reps_df["rep_label"] = [key.get((c, int(n)), f) for c, n, f
+            reps_df["rep_label"] = [key.get((c, int(n)), f) if str(n).isdigit() else f for c, n, f
                                     in zip(reps_df["clip_id"], reps_df["rep"], reps_df["form_label"])]
             print(f"회차 라벨 적용: {len(key)}개 ({lab_path.name})")
     tag = "" if args.standards == "team" else "_glb"
