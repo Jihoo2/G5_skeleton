@@ -250,9 +250,15 @@ def seq_fps(seq: pd.DataFrame, default: float = 30.0) -> float:
     team_03이 영상의 실제 fps로 time_sec를 기록하므로, 설정값(fps=30) 대신 이 값을 씁니다."""
     if "time_sec" not in seq:
         return default
-    dt = np.diff(pd.to_numeric(seq["time_sec"], errors="coerce").to_numpy(float))
-    dt = dt[np.isfinite(dt) & (dt > 0)]
-    return float(round(1.0 / np.median(dt), 3)) if len(dt) else default
+    t = pd.to_numeric(seq["time_sec"], errors="coerce").to_numpy(float)
+    f = pd.to_numeric(seq["frame_id"], errors="coerce").to_numpy(float) if "frame_id" in seq else np.arange(len(t), dtype=float)
+    ok = np.isfinite(t) & np.isfinite(f)
+    if ok.sum() < 2:
+        return default
+    t, f = t[ok], f[ok]
+    span = t[-1] - t[0]
+    # 처음~끝 전체 간격으로 계산 (time_sec가 소수 3자리로 반올림돼 있어 Frame 간격 중앙값을 쓰면 30fps가 30.3fps로 나옴)
+    return float(round((f[-1] - f[0]) / span, 3)) if span > 0 else default
 
 
 def smooth(x, k: int = 7):
