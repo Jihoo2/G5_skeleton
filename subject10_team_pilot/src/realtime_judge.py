@@ -2,8 +2,10 @@
 
 녹화 영상 판정(team_09)은 영상 전체를 본 뒤 '서 있을 때 높이'와 1회 구간을 계산합니다.
 실시간에서는 미래 Frame이 없으므로 두 단계로 나눕니다.
-  1) 감지(가벼움, 매 Frame): 다리 높이(leg_ratio)를 최근 몇 초의 '서 있을 때 값'과 비교하는 상태 머신
-       STAND → (서 있을 때 × 0.85 아래) DOWN → (다시 위로 0.4초 유지) 완료
+  1) 감지(매 Frame): 최근 버퍼의 다리 높이에 녹화 판정과 같은 find_reps를 다시 적용하고,
+     끝난 지 0.4초+평활화 여유가 지나 더 이상 합쳐지지 않을 회차만 '완료'로 확정
+     (2026-11-18: 처음엔 별도 상태 머신을 썼으나 녹화 판정과 일치율 67% → 같은 함수로 통일)
+     영상 파일 끝에서는 flush()로 남은 회차를 녹화 판정과 같은 규칙으로 마무리
   2) 측정·판정(1회가 끝날 때 한 번): 그 1회 앞뒤를 포함한 최근 구간을 team_09와 같은 함수
        (build_frame_features → rep_metrics → judge_rep)로 계산 → 녹화 판정과 같은 기준·메시지
      1회로 인정되는 깊이에 못 미쳤으면 '얕은 시도' NG (shallow_attempt_ng 동작만)
@@ -22,8 +24,8 @@ import pandas as pd
 from src.feature_utils import LEFT_ANKLE, LEFT_HIP, LEFT_SHOULDER, RIGHT_ANKLE, RIGHT_HIP, RIGHT_SHOULDER
 from src.form_model import FormModel, rep_block, series_frame
 from src.team_feature_utils import (
-    MESSAGES, build_frame_features, curve_distance, metrics_for, rep_metrics, shallow_attempts,
-    view_group,
+    MESSAGES, build_frame_features, curve_distance, find_reps, find_shallow_attempts, metrics_for,
+    rep_metrics, shallow_attempts, view_group,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,7 +36,8 @@ _spec.loader.exec_module(team09)
 ENTER, NEED = 0.85, 0.80           # find_reps와 같은 값
 EXIT_HOLD_S, MIN_LEN_S = 0.4, 0.3  # merge_gap_s, min_len_s
 PRE_S, POST_S = 1.2, 0.5           # 측정할 때 1회 앞뒤로 붙이는 여유
-BUFFER_S, STAND_WIN_S, WARMUP_S = 20.0, 8.0, 1.5
+BUFFER_S, STAND_WIN_S, WARMUP_S = 20.0, 8.0, 1.0
+SMOOTH_LAG = 7  # smooth()의 가운데 정렬 창(7) 때문에 끝쪽 값이 확정되기까지 필요한 Frame
 
 
 def estimate_view(xy_buf: np.ndarray) -> str:
@@ -61,12 +64,12 @@ class OnlineJudge:
         self.n_buf = int(BUFFER_S * fps)
         self.fid, self.t = deque(maxlen=self.n_buf), deque(maxlen=self.n_buf)
         self.xy, self.conf = deque(maxlen=self.n_buf), deque(maxlen=self.n_buf)
-        self.lr = deque(maxlen=self.n_buf)        # 감지용 leg_ratio (몸통 길이 기준)
+        self.lr = deque(maxlen=self.n_buf)        # 감지용 (발목 y − 골반 y, 몸통 길이)
         self.view_fixed = view if view != "auto" else None
         self.view = view if view != "auto" else None
         self.state, self.rep_no, self.shallow_no = "WARMUP", 0, 0
         self.total = 0  # 지금까지 받은 Frame 수 (버퍼가 차서 앞쪽이 지워져도 위치를 절대값으로 관리)
-        self.down_start, self.down_min, self.up_since = None, np.inf, None
+        self.last_end = -1  # 마지막으로 판정한 구간의 끝 (절대 Frame 위치)
         self.counts = {"OK": 0, "NG": 0, "CHECK": 0}
         self.events: list[dict] = []
         self.model = None
@@ -90,69 +93,73 @@ class OnlineJudge:
         self.tpl = json.loads(tp.read_text(encoding="utf-8"))["curve"] if tp.exists() else None
 
     @staticmethod
-    def _leg_ratio(xy: np.ndarray) -> float:
+    def _raw_leg(xy: np.ndarray) -> tuple[float, float]:
+        """(발목 y − 골반 y, 몸통 길이) — 나눗셈은 버퍼 전체의 몸통 기준으로 나중에 (녹화 판정과 같은 방식)"""
         sh = np.nanmean(xy[[LEFT_SHOULDER, RIGHT_SHOULDER]], 0)
         hp = np.nanmean(xy[[LEFT_HIP, RIGHT_HIP]], 0)
         an = np.nanmean(xy[[LEFT_ANKLE, RIGHT_ANKLE]], 0)
-        torso = np.linalg.norm(sh - hp)
-        if not (np.isfinite(torso) and torso > 1e-6 and np.isfinite(an[1]) and np.isfinite(hp[1])):
-            return np.nan
-        return float((an[1] - hp[1]) / torso)
+        return float(an[1] - hp[1]), float(np.linalg.norm(sh - hp))
 
-    def _smoothed(self, k: int = 5) -> float:
-        v = np.array(list(self.lr)[-k:], float)
-        return float(np.nanmean(v)) if np.isfinite(v).any() else np.nan
-
-    def _stand(self) -> float:
-        n = int(STAND_WIN_S * self.fps)
-        v = np.array(list(self.lr)[-n:], float)
-        v = v[np.isfinite(v)]
-        return float(np.percentile(v, 90)) if len(v) else np.nan
+    def _lr_buffer(self) -> np.ndarray:
+        raw = np.array(self.lr, float)          # (n, 2)
+        ref = np.nanpercentile(raw[:, 1], 90) if np.isfinite(raw[:, 1]).any() else np.nan
+        return raw[:, 0] / ref if np.isfinite(ref) and ref > 1e-6 else np.full(len(raw), np.nan)
 
     # ------------------------------------------------------------------
     def push(self, frame_id: int, t: float, xy: np.ndarray, conf: np.ndarray) -> list[dict]:
-        """한 Frame 입력 → 이번 Frame에서 끝난 1회 판정 이벤트 목록"""
+        """한 Frame 입력 → 이번 Frame에서 확정된 1회 판정 이벤트 목록"""
         self.fid.append(frame_id)
         self.t.append(t)
         self.xy.append(np.asarray(xy, float))
         self.conf.append(np.asarray(conf, float))
-        self.lr.append(self._leg_ratio(np.asarray(xy, float)))
+        self.lr.append(self._raw_leg(np.asarray(xy, float)))
         self.total += 1
-        out = []
-        if self.state == "WARMUP":
-            if len(self.lr) >= WARMUP_S * self.fps and np.isfinite(self._stand()):
-                if self.view is None:
-                    self.view = estimate_view(np.array(self.xy))
-                    self._load_standard()
-                self.state = "STAND"
-            return out
-        lr, stand = self._smoothed(), self._stand()
-        if not (np.isfinite(lr) and np.isfinite(stand)):
-            return out
-        i = self.total - 1  # 절대 위치
-        if self.state == "STAND":
-            if lr < stand * ENTER:
-                self.state, self.down_start, self.down_min, self.up_since = "DOWN", i, lr, None
-        else:  # DOWN
-            self.down_min = min(self.down_min, lr)
-            if lr < stand * ENTER:
-                self.up_since = None
-            else:
-                self.up_since = i if self.up_since is None else self.up_since
-                if (i - self.up_since) >= EXIT_HOLD_S * self.fps:
-                    out += self._finish(self.down_start, self.up_since, stand)
-                    self.state = "STAND"
+        if len(self.fid) < WARMUP_S * self.fps:
+            self.state = "WARMUP"
+            return []
+        if self.view is None:
+            self.view = estimate_view(np.array(self.xy))
+            self._load_standard()
+        settle = len(self.fid) - (int(round(0.4 * self.fps)) + SMOOTH_LAG)
+        out = self._emit(settle)
+        lr = self._lr_buffer()
+        stand = np.nanpercentile(lr, 90) if np.isfinite(lr).any() else np.nan
+        cur = np.nanmean(lr[-5:]) if np.isfinite(lr[-5:]).any() else np.nan
+        self.state = "DOWN" if (np.isfinite(cur) and np.isfinite(stand) and cur < stand * ENTER) else "STAND"
         self.events += out
         return out
 
+    def _emit(self, settle: int, final: bool = False) -> list[dict]:
+        lr = self._lr_buffer()
+        first = self.total - len(self.fid)
+        out = []
+        reps, _ = find_reps(lr, self.fps)
+        segs = [(s, e, "rep") for s, e in reps]
+        if self.action.get("shallow_attempt_ng"):
+            segs += [(s, e, "shallow") for s, e in find_shallow_attempts(lr, self.fps)]
+        for s, e, kind in sorted(segs):
+            s_abs, e_abs = s + first, e + first
+            if s_abs < self.last_end or (e > settle and not final):
+                continue
+            if kind == "shallow" and final and e >= len(lr) - max(1, int(round(0.1 * self.fps))):
+                continue  # 영상 끝에 걸쳐 잘린 구간 (녹화 판정과 같은 규칙)
+            self.last_end = e_abs
+            out += self._finish(s_abs, e_abs, kind)
+        return out
+
     def flush(self) -> list[dict]:
-        """영상 끝: 내려가던 중 끝났으면 버림 (녹화 판정에서 끝에 걸친 구간을 버리는 것과 같음)"""
-        return []
+        """영상 파일 끝: 아직 확정 안 된 회차를 녹화 판정과 같은 규칙으로 마무리"""
+        if len(self.fid) < 2:
+            return []
+        if self.view is None:
+            self.view = estimate_view(np.array(self.xy))
+            self._load_standard()
+        out = self._emit(len(self.fid), final=True)
+        self.events += out
+        return out
 
     # ------------------------------------------------------------------
-    def _finish(self, s_abs: int, e_abs: int, stand: float) -> list[dict]:
-        if (e_abs - s_abs) < MIN_LEN_S * self.fps:
-            return []
+    def _finish(self, s_abs: int, e_abs: int, kind: str = "rep") -> list[dict]:
         first = self.total - len(self.fid)            # 버퍼 첫 칸의 절대 위치
         s, e = max(0, s_abs - first), e_abs - first   # 버퍼 안 위치
         a = max(0, s - int(PRE_S * self.fps))
@@ -172,9 +179,9 @@ class OnlineJudge:
                 best, best_ov = k, ov
         base = dict(start_frame=int(fid[lo]), end_frame=int(fid[min(hi, len(fid) - 1)]),
                     start_s=round(float(t[lo]), 2), end_s=round(float(t[min(hi, len(t) - 1)]), 2))
-        if best is None:
-            if self.action.get("shallow_attempt_ng") and shallow_attempts(
-                    seq, view, self.fps, self.kp_conf, self.combine):
+        if kind == "shallow" or best is None:
+            if kind == "shallow" or (self.action.get("shallow_attempt_ng") and shallow_attempts(
+                    seq, view, self.fps, self.kp_conf, self.combine)):
                 self.shallow_no += 1
                 self.counts["NG"] += 1
                 return [dict(kind="shallow", rep=f"얕은{self.shallow_no}", verdict="NG",

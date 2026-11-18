@@ -4,7 +4,8 @@
 화면: 뼈대, 현재 상태(대기·서 있음·내려감), 회차 수, 마지막 회차 판정(OK 초록 / NG 빨강 + 교정 메시지 /
       CHECK 회색), 모델 '주의'(노랑), 누적 OK·NG
 판정 기준: team_09와 같은 standards·규칙·메시지 (src/realtime_judge.py)
-  - 시작 후 1.5초는 '서 있는 자세'로 기준을 잡습니다 → 카메라 앞에 전신이 보이게 서 있다가 시작
+  - 시작 후 1초 동안 준비 → 카메라 앞에 전신이 보이게 서 있다가 시작
+  - 1회가 끝나고 약 0.6초 뒤에 판정이 뜹니다 (다음 동작과 합쳐지지 않는지 확인하는 시간)
   - 촬영 각도는 --view 로 지정하거나 auto(어깨 폭/몸통 길이로 추정)
 
 실행
@@ -149,6 +150,9 @@ def run_live(args, cfg, p):
             cv2.imshow("team05 form judge (q: 종료)", frame)
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
+    is_file = not str(args.source).isdigit() and not str(args.source).startswith("http")
+    for ev in (judge.flush() if is_file else []):
+        print(f"[{ev['start_s']:6.1f}s] {ev['rep']}회 {ev['verdict']:5s} {ev.get('message', '')}")
     cap.release()
     if writer:
         writer.release()
@@ -169,6 +173,7 @@ def replay(clip_id: str, cfg, p, man, offline: pd.DataFrame, standards: str, ver
     ev = []
     for i in range(len(fid)):
         ev += judge.push(int(fid[i]), float(i / fps), xy[i], conf[i])
+    ev += judge.flush()
     on = pd.DataFrame(ev)
     off = offline[offline["clip_id"] == clip_id].copy()
     # 녹화 판정 회차마다 겹치는 실시간 회차를 찾아 판정 비교
