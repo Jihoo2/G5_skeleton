@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>분석 결과 · 팀05</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header><h1><a href="/" style="color:inherit;text-decoration:none">맨몸운동 자세 판정</a></h1><span id="sub">분석 중…</span></header>
+<main>
+  <div id="wait" class="card">
+    <p class="hint" id="wmsg">대기 중…</p>
+    <div class="bar"><div id="wbar"></div></div>
+  </div>
+  <div id="res" class="grid" style="display:none">
+    <section>
+      <div class="stage"><video id="v" controls playsinline></video><canvas id="c"></canvas></div>
+      <div class="timeline" id="tl"><div class="cursor" id="cur"></div></div>
+      <div class="chart card" id="chartbox" style="display:none">
+        <div id="charttitle" style="font-weight:600"></div>
+        <svg id="chart" viewBox="0 0 480 220" preserveAspectRatio="none"></svg>
+        <div class="legend">
+          <b style="background:#4c9dff"></b>내 무릎 <b style="background:#4c9dff;opacity:.35"></b>정석 무릎(GLB)
+          <b style="background:#ffc83d"></b>내 고관절 <b style="background:#ffc83d;opacity:.35"></b>정석 고관절(GLB)
+        </div>
+      </div>
+    </section>
+    <section class="card">
+      <div class="stats" id="stats"></div>
+      <div class="reps" id="reps"></div>
+    </section>
+  </div>
+</main>
+<script src="/static/job.js"></script>
+</body>
+</html>

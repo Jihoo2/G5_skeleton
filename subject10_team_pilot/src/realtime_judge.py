@@ -201,6 +201,15 @@ class OnlineJudge:
         ev = dict(kind="rep", rep=self.rep_no, verdict=v, out_of_range="; ".join(bad),
                   message=" / ".join(dict.fromkeys(msgs)) if msgs else ("좋습니다" if v == "OK" else ""),
                   depth=d.get("depth"), knee_min=d.get("knee_min"), **base)
+        # 웹 결과 화면용: 측정값 vs 기준, 1회 곡선 vs GLB 정석 곡선
+        ev["checks"] = [dict(metric=m, value=None if not np.isfinite(d.get(m, np.nan)) else round(float(d[m]), 3),
+                             lo=sd.get("lo"), hi=sd.get("hi"), provisional=bool(sd.get("provisional")),
+                             ok=not any(b.startswith(m) for b in bad))
+                        for m, sd in (self.metrics or {}).items()]
+        c = curves[best]
+        ev["curve"] = {k: [None if not np.isfinite(x) else round(float(x), 2) for x in c[k]] for k in ("knee", "hip")}
+        if self.tpl:
+            ev["template"] = {k: [round(float(x), 2) for x in self.tpl[k]] for k in ("knee", "hip")}
         if self.model is not None:
             blk = rep_block(series_frame(seq, self.kp_conf), d["start_frame"], d["end_frame"])
             sc = float(self.model.score(blk[None])[0])
