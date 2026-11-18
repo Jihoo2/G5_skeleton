@@ -11,6 +11,7 @@
   knee_in  무릎 모으기 : 두 무릎을 발목 중점 쪽으로 b 비율만큼 이동
   hip_sag  허리 처짐   : 플랭크 Frame에서 골반을 몸통 길이 × g 만큼 아래로
   hip_pike 엉덩이 들림 : 플랭크 Frame에서 골반을 몸통 길이 × g 만큼 위로
+  lunge_shallow 런지 덜 내려가기 : 발목 고정, 골반을 서 있을 때 높이 쪽으로 a 비율만큼 올리고 무릎은 역기구학
 
 판정 경로 (team_09와 동일)
   keypoints CSV → 변형 → build_frame_features → rep_metrics → curve_distance → team_09.judge_rep
@@ -23,7 +24,7 @@
 
 실행
   python scripts/team_11_ng_sensitivity.py
-  python scripts/team_11_ng_sensitivity.py --splits val test_ext     # 사용할 split 지정
+  python scripts/team_11_ng_sensitivity.py --splits val val_ext      # 사용할 split 지정 (test 계열은 사용 불가)
   python scripts/team_11_ng_sensitivity.py --only shallow knee_in    # 일부 변형만
 """
 from __future__ import annotations
@@ -46,7 +47,7 @@ from src.feature_utils import (  # noqa: E402
 )
 from src.team_feature_utils import (  # noqa: E402
     build_frame_features, curve_distance, load_keypoints_csv, load_team_config,
-    rep_metrics, team_paths, torso_reference,
+    rep_metrics, seq_fps, shallow_attempts, team_paths, torso_reference,
 )
 
 # 판정 함수는 team_09에서 그대로 가져온다 (실험과 실제 판정이 어긋나지 않도록)
@@ -101,6 +102,43 @@ def hip_shift(xy, g):
     return out
 
 
+def lunge_shallow(xy, a):
+    """런지 덜 내려가기: 발목은 제자리, 골반(과 상체)을 '서 있을 때 높이' 쪽으로 a 비율만큼 올리고
+    무릎은 허벅지·정강이 길이를 유지하는 2관절 역기구학으로 다시 놓음 (원래 무릎이 굽은 방향 유지).
+    스쿼트용 shallow()는 발목 중점 기준으로 자세 전체를 '서 있는 자세'로 섞어서, 다리가 앞뒤로 벌어진
+    런지에서는 보폭까지 줄어드는 비현실적인 자세가 되므로 따로 만듦."""
+    if a == 0:
+        return xy.copy()
+    out = xy.copy()
+    hip_y = _mid(xy, HIP)[:, 1]
+    stand_y = np.nanpercentile(hip_y, 10)            # 이미지 y는 아래로 + → 작을수록 높음
+    dy = a * (stand_y - hip_y)                         # 음수 = 위로
+    upper = list(range(0, 13))                         # 얼굴·어깨·팔·골반
+    out[:, upper, 1] = xy[:, upper, 1] + dy[:, None]
+    standing = hip_y <= np.nanpercentile(hip_y, 20)
+    for H, K, A in ((LEFT_HIP, LEFT_KNEE, LEFT_ANKLE), (RIGHT_HIP, RIGHT_KNEE, RIGHT_ANKLE)):
+        l1 = np.nanmedian(np.linalg.norm(xy[standing, K] - xy[standing, H], axis=1))
+        l2 = np.nanmedian(np.linalg.norm(xy[standing, A] - xy[standing, K], axis=1))
+        for t in range(len(xy)):
+            h, an, k0 = out[t, H], xy[t, A], xy[t, K]
+            if not (np.isfinite(h).all() and np.isfinite(an).all() and np.isfinite(k0).all()):
+                continue
+            v = an - h
+            d = np.linalg.norm(v)
+            if d < 1e-6:
+                continue
+            if d >= l1 + l2 or d <= abs(l1 - l2):
+                out[t, K] = h + v * l1 / (l1 + l2)
+                continue
+            along = (l1 ** 2 - l2 ** 2 + d ** 2) / (2 * d)
+            hh = np.sqrt(max(l1 ** 2 - along ** 2, 0.0))
+            base = h + v * along / d
+            perp = np.array([-v[1], v[0]]) / d
+            c1, c2 = base + hh * perp, base - hh * perp
+            out[t, K] = c1 if np.linalg.norm(c1 - k0) <= np.linalg.norm(c2 - k0) else c2
+    return out
+
+
 EXPERIMENTS = {
     "shallow": dict(action="A008", fn=shallow, target="depth",
                     strengths=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], plot="shallow squat (A008)"),
@@ -110,13 +148,15 @@ EXPERIMENTS = {
                     strengths=[0, 0.05, 0.1, 0.15, 0.2, 0.3], plot="hip sag (A001)"),
     "hip_pike": dict(action="A001", fn=lambda xy, s: hip_shift(xy, -s), target="body_line_max",
                      strengths=[0, 0.1, 0.2, 0.3, 0.4, 0.6], plot="hip pike (A001)"),
+    "lunge_shallow": dict(action="A004", fn=lunge_shallow, target="depth",
+                          strengths=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], plot="shallow lunge (A004)"),
 }
 
 
 def judge_seq(seq, r, cfg, metrics, tpl, kp_conf, check_ratio):
     """team_09 main()의 1회 단위 판정과 같은 순서"""
     combine = cfg["actions"][r["action_id"]].get("leg_combine", "mean")
-    reps, curves = rep_metrics(seq, r["view"], cfg["fps"], kp_conf, combine)
+    reps, curves = rep_metrics(seq, r["view"], seq_fps(seq, cfg["fps"]), kp_conf, combine)
     out = []
     for i, row in reps.iterrows():
         d = row.to_dict()
@@ -126,15 +166,20 @@ def judge_seq(seq, r, cfg, metrics, tpl, kp_conf, check_ratio):
         else:
             v, bad, _, _ = team09.judge_rep(d, metrics)
             out.append((v, bad))
+    if cfg["actions"][r["action_id"]].get("shallow_attempt_ng"):  # team_09와 같이 '얕은 시도'도 NG
+        out += [("NG", ["depth>shallow_attempt"])
+                for _ in shallow_attempts(seq, r["view"], seq_fps(seq, cfg["fps"]), kp_conf, combine)]
     return out
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--splits", nargs="+", default=["train", "val", "test_ext"],
+    ap.add_argument("--splits", nargs="+", default=["train", "val", "val_ext"],
                     help="정석 규칙 판정이라 train 영상도 공정하게 쓸 수 있음 (form_label=OK만 사용)")
     ap.add_argument("--only", nargs="+", choices=list(EXPERIMENTS), default=list(EXPERIMENTS))
     args = ap.parse_args()
+    if set(args.splits) & {"test", "test_ext"}:
+        raise SystemExit("[중지] test / test_ext 는 규칙 조정 실험에 쓰지 않습니다 (Test 누수).")
 
     cfg = load_team_config()
     p = team_paths(cfg)
@@ -214,7 +259,8 @@ def main() -> None:
         names_ko = {"shallow": "덜 앉기 (스쿼트 점프, 움직임 폭 축소)",
                     "knee_in": "무릎 모으기 (스쿼트 점프 정면)",
                     "hip_sag": "허리 처짐 (버피 측면, 몸통 길이 대비)",
-                    "hip_pike": "엉덩이 들림 (버피 측면, 몸통 길이 대비)"}
+                    "hip_pike": "엉덩이 들림 (버피 측면, 몸통 길이 대비)",
+                    "lunge_shallow": "덜 내려가기 (런지, 골반 높이 기준)"}
 
         fig, ax = plt.subplots(figsize=(8, 4.8))
         for name in g["experiment"].unique():

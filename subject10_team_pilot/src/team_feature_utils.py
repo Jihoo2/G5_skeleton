@@ -245,6 +245,24 @@ def build_frame_features(frame_id, time_sec, xy, conf, view: str,
 # ------------------------------------------------------------------
 # 1회(rep) 구간과 측정값
 # ------------------------------------------------------------------
+def seq_fps(seq: pd.DataFrame, default: float = 30.0) -> float:
+    """Sequence의 time_sec 간격으로 실제 fps 계산 (외부 영상은 24·25fps 등 제각각).
+    team_03이 영상의 실제 fps로 time_sec를 기록하므로, 설정값(fps=30) 대신 이 값을 씁니다."""
+    if "time_sec" not in seq:
+        return default
+    t = pd.to_numeric(seq["time_sec"], errors="coerce").to_numpy(float)
+    f = pd.to_numeric(seq["frame_id"], errors="coerce").to_numpy(float) if "frame_id" in seq else np.arange(len(t), dtype=float)
+    ok = np.isfinite(t) & np.isfinite(f)
+    if ok.sum() < 2:
+        return default
+    t, f = t[ok], f[ok]
+    span = t[-1] - t[0]
+    # 처음~끝 전체 간격으로 계산 (time_sec가 소수 3자리로 반올림돼 있어 Frame 간격 중앙값을 쓰면 30fps가 30.3fps로 나옴)
+    # 소수 2자리로 맞춤: 30fps 영상이 29.999·30.001로 잡히면 1회 구간 경계(0.3초 = 9 Frame,
+    # 0.4초 = 12 Frame)에 정확히 걸린 구간이 들어갔다 빠졌다 함
+    return float(round((f[-1] - f[0]) / span, 2)) if span > 0 else default
+
+
 def smooth(x, k: int = 7):
     s = pd.Series(np.asarray(x, dtype=float))
     return s.rolling(k, center=True, min_periods=1).median().rolling(k, center=True, min_periods=1).mean().to_numpy()
@@ -280,6 +298,47 @@ def find_reps(leg_ratio, fps: float = 30.0, enter: float = 0.85, need: float = 0
             merged.append([s_, e])
     return [(s_, e) for s_, e in merged
             if e - s_ >= min_len_s * fps and rr[s_:e].min() < stand * need], float(stand)
+
+
+def find_shallow_attempts(leg_ratio, fps: float = 30.0, enter: float = 0.85, need: float = 0.80,
+                          merge_gap_s: float = 0.4, min_len_s: float = 0.3):
+    """내려가긴 했지만(서 있을 때 × enter 아래) 1회로 인정되는 깊이(× need)까지는 못 간 구간.
+    find_reps가 버리는 구간이라, 따로 세지 않으면 '덜 내려간 회차'가 판정에서 조용히 사라짐."""
+    r = smooth(leg_ratio)
+    if not np.isfinite(r).any():
+        return []
+    stand = np.nanpercentile(r, 90)
+    rr = np.nan_to_num(r, nan=stand)
+    low = rr < stand * enter
+    segs, i, n = [], 0, len(r)
+    while i < n:
+        if low[i]:
+            j = i
+            while j < n and low[j]:
+                j += 1
+            segs.append([i, j])
+            i = j
+        else:
+            i += 1
+    merged = []
+    for s_, e in segs:
+        if merged and s_ - merged[-1][1] < merge_gap_s * fps:
+            merged[-1][1] = e
+        else:
+            merged.append([s_, e])
+    # 영상 처음·끝에 걸친 구간은 동작 도중 잘린 것이라 세지 않음
+    # (2026-11-18 EXT_S05 11.6~12.0초: 10회차를 앉기 시작하다 영상 끝 → 얕은 시도로 잘못 잡힘)
+    edge = max(1, int(round(0.1 * fps)))
+    return [(s_, e) for s_, e in merged
+            if e - s_ >= min_len_s * fps and rr[s_:e].min() >= stand * need
+            and s_ >= edge and e <= n - edge]
+
+
+def shallow_attempts(seq: pd.DataFrame, view: str, fps: float = 30.0, kp_conf: float = 0.50,
+                     combine: str = "mean") -> list[tuple[int, int]]:
+    """rep_metrics와 같은 leg_ratio로 '얕은 시도' 구간 (Frame 0부터, 끝 제외)"""
+    ser = resolved_series(seq, view, kp_conf, combine)
+    return find_shallow_attempts(ser["leg_ratio"], fps)
 
 
 def near_side(seq: pd.DataFrame) -> str:

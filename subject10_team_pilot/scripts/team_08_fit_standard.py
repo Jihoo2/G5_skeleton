@@ -42,7 +42,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.team_feature_utils import (  # noqa: E402
-    curve_distance, load_team_config, metrics_for, rep_metrics, team_paths, view_group,
+    curve_distance, load_team_config, metrics_for, rep_metrics, seq_fps, team_paths, view_group,
 )
 
 
@@ -55,7 +55,7 @@ def collect_reps(man: pd.DataFrame, p: dict, cfg: dict) -> pd.DataFrame:
         if not sp.exists():
             continue
         seq = pd.read_csv(sp)
-        reps, curves = rep_metrics(seq, r["view"], fps, kp_conf,
+        reps, curves = rep_metrics(seq, r["view"], seq_fps(seq, fps), kp_conf,
                                     cfg["actions"].get(r["action_id"], {}).get("leg_combine", "mean"))
         tpl_path = p["reference"] / f"{r['action_id']}_{r['view']}_template.json"
         tpl = json.loads(tpl_path.read_text(encoding="utf-8"))["curve"] if tpl_path.exists() else None

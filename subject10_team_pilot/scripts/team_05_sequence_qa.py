@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.team_feature_utils import (  # noqa: E402
-    load_team_config, rep_metrics, resolved_series, team_paths,
+    load_team_config, rep_metrics, resolved_series, seq_fps, team_paths,
 )
 
 
@@ -54,7 +54,7 @@ def main() -> None:
         comb = cfg["actions"].get(r["action_id"], {}).get("leg_combine", "mean")
         ser = resolved_series(seq, r["view"], kp_conf, comb)
         key_low = float(np.mean(~np.isfinite(ser["knee"]) | ~np.isfinite(ser["hip"])))
-        reps, _ = rep_metrics(seq, r["view"], fps, kp_conf, comb)
+        reps, _ = rep_metrics(seq, r["view"], seq_fps(seq, fps), kp_conf, comb)
         kp = pd.read_csv(p["keypoints"] / f"{r['clip_id']}_keypoints.csv")
         valid = seq["valid_pose"].to_numpy().astype(bool)
         info = dict(

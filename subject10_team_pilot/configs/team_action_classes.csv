@@ -1,5 +1,5 @@
 action_id,action_label,description,glb_file
 A001,burpee,버피 (선 자세 → 스쿼트 → 플랭크 → 스쿼트 → 점프),261110_B001_T002_SHG.glb
-A004,lunge,런지 (앞다리 굽혀 내려갔다 올라오기) - VICON GLB 없음 (B004는 니업),
+A004,lunge,런지 (앞다리 굽혀 내려갔다 올라오기) - B004는 니업이라 제외,261110_B014_T001_SHG.glb
 A006,plank_kick_through,플랭크에서 한쪽 다리를 몸 아래로 넘기기,261110_B006_T001_SHG.glb
 A008,squat_jump,스쿼트 점프 (앉았다가 점프 후 착지),261110_B008_T002_SHG.glb

@@ -23,11 +23,22 @@ data/team_projects/team05/{rgb/videos, ext/videos, vicon}
 | 3 | `team_03_extract_keypoints.py` | 1·2일차 YOLO Pose | `keypoints/<clip_id>_keypoints.csv` |
 | 4 | `team_04_build_sequences.py` | 3일차 Feature + 4일차 Sequence | `sequences/<clip_id>_sequence.csv` |
 | 5 | `team_05_sequence_qa.py` | 4·5일차 QA | `tables/sequence_qa.csv` → **Manifest의 review_status 직접 기입** |
-| 6 | `team_06_make_split.py` | 5일차 Subject-wise Split | Manifest split 열, `tables/dataset_split.csv` |
+| 6 | `team_06_make_split.py` | 5일차 Subject-wise Split | Manifest split 열(train·val·val_ext·test·test_ext), `tables/dataset_split.csv` |
 | 7 | `team_07_build_reference.py` | VICON 별도 실험 | `reference/<동작>_<각도>_template.json` |
 | 8 | `team_08_fit_standard.py` | (팀) 정석 허용 범위 | `standards/<동작>_<각도>.json` |
-| 9 | `team_09_judge.py` | 6일차 평가 자리 | `judgments/rep_judgments.csv`, `tables/judgment_summary.csv` |
+| 9 | `team_09_judge.py` | 6일차 평가 자리 | `judgments/rep_judgments.csv`, `tables/judgment_summary.csv` (기본 val·val_ext, test 계열은 `--final`) |
 | 10 | `team_10_render_overlay.py --clip <id>` | 10일차 실패 분석 | `overlays/<clip_id>_overlay.mp4` (뼈대 + 1회 판정 표시, 선택 실행) |
+| 12 | `team_12_export_day05_keypoints.py` | 5일차 26번 | `day05/keypoints/<subject>/<action>/<clip>.csv` (1행=1Frame, 95열), `day05/manifests/keypoint_dataset_manifest.csv` |
+| 13 | `team_13_keypoint_qa.py` | 5일차 27번 | `day05/qa/keypoint_clip_qa.csv`, `keypoint_clip_review.csv` (human_decision ← Manifest review_status) |
+| 14 | `team_14_build_approved_manifest.py` | 5일차 28·29번 | `day05/manifests/approved_clip_manifest.csv` |
+| 15 | `team_15_build_subject_split.py` | 5일차 30번 | `configs/day05_subject_split.json`(자동 생성), `day05/splits/{train,val,val_ext,test,test_ext}.csv`, `day05/tables/split_coverage.csv` |
+| 16 | `team_16_check_split_leakage.py` | 5일차 31번 | Subject·Clip·원본 영상 overlap 검사 (FAIL 시 종료 코드 1) |
+| 17 | `team_17_demo_frame_split_leakage.py` | 5일차 32번 | Random Frame Split 비교 (`day05/tables/random_frame_split_demo.csv`) |
+| 18 | `team_18_glb_augment.py` | (포트폴리오) GLB 메인 | `glb_aug/<action>_reps.csv·.npz` — 카메라·체형·속도·YOLO 흔들림을 바꾼 GLB 정석 1회 동작 |
+| 19 | `team_19_calibrate_glb.py` | (포트폴리오) 영상 보정 | `standards_glb/`, `tables/glb_calibration.csv` → `team_09_judge.py --standards glb` |
+| 20 | `team_20_form_model_loso.py` | (포트폴리오) 정석 이상 탐지 모델 | 실제 정석(train+val_ext) 중심 + GLB 증강 보충, 사람 단위 LOSO 평가 → `tables/form_model_loso_summary.csv`, `models/form_model_<action>.npz` |
+
+5일차 형식 한 번에: `bash scripts/run_day05.sh` → 결과 폴더 `reports/team_projects/team05/day05/`
 
 ```bash
 cd ~/ai_vision/subject10_pose_action

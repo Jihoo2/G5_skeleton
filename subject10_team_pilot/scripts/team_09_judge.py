@@ -5,6 +5,11 @@
   CHECK : 1회 구간을 못 찾음, 또는 무릎·고관절 Confidence 낮은 Frame 비율 > low_conf_check_ratio
           → 자세가 틀렸다고 말하지 않고 "카메라 위치·전신이 보이게" 안내 (교과 2일차 원칙)
   NG    : 핵심 측정값 하나라도 허용 범위 밖 → 벗어난 방향에 맞는 한국어 교정 메시지
+  얕은 시도: 내려가긴 했지만 1회로 인정되는 깊이까지 못 간 구간 → NG "더 깊이 내려가세요"
+          (actions.*.shallow_attempt_ng=true 인 동작만: 런지·스쿼트 점프)
+  주의   : (판정은 바꾸지 않음) team_20 정석 이상 탐지 모델 점수 > standard.model_tau(기본 2.0)
+          → 규칙이 보지 않는 '정석과 다른 움직임'을 확인 대상으로 표시. 모델 파일이 없으면 생략
+          (2026-11-18 LOSO 비교에서 모델 검출률이 규칙보다 낮아 NG에는 쓰지 않기로 함)
   OK    : 모든 핵심 측정값이 허용 범위 안
   판정에서 빼는 항목: unreliable(그 각도에서 흔들림이 큰 항목), 팀 OK 영상 없이 GLB 값만 있는 항목
           (GLB만 있는 항목은 config standard.judge_glb_only=true 일 때만 사용 — 촬영 각도·높이 차이로
@@ -16,8 +21,10 @@
   화면: split별 OK Clip 오판정률(false NG) / NG 라벨 Clip 검출률(있을 때만)
 
 실행
-  python scripts/team_09_judge.py                       # val, test, test_ext
-  python scripts/team_09_judge.py --splits train val test test_ext
+  python scripts/team_09_judge.py                       # val, val_ext (규칙 조정용)
+  python scripts/team_09_judge.py --splits train val val_ext
+  python scripts/team_09_judge.py --final               # 규칙 동결 후 test, test_ext 한 번만
+test / test_ext 는 --final 없이는 판정하지 않습니다 (결과를 보고 규칙을 고치면 Test 누수).
 """
 from __future__ import annotations
 
@@ -32,8 +39,10 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from src.form_model import FormModel, rep_block, series_frame  # noqa: E402
 from src.team_feature_utils import (  # noqa: E402
-    MESSAGES, curve_distance, load_team_config, metrics_for, rep_metrics, team_paths, view_group,
+    MESSAGES, curve_distance, load_team_config, metrics_for, rep_metrics, seq_fps, shallow_attempts, team_paths,
+    view_group,
 )
 
 
@@ -66,14 +75,29 @@ def judge_rep(row: dict, metrics: dict) -> tuple[str, list[str], list[str], list
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--splits", nargs="+", default=["val", "test", "test_ext"])
+    ap.add_argument("--splits", nargs="+", default=["val", "val_ext"])
+    ap.add_argument("--standards", choices=["team", "glb"], default="team",
+                    help="team: team_08 기준(팀 영상 분포+규칙) / glb: team_19 기준(GLB 증강+영상 보정+규칙)")
+    ap.add_argument("--final", action="store_true",
+                    help="규칙 동결(rules-v1 태그) 후 test, test_ext 를 한 번만 평가")
     args = ap.parse_args()
+    if args.final:
+        args.splits = ["test", "test_ext"]
+    elif set(args.splits) & {"test", "test_ext"}:
+        raise SystemExit("[중지] test / test_ext 는 규칙을 동결한 뒤 --final 로만 판정합니다.")
 
     cfg = load_team_config()
     p = team_paths(cfg)
     fps, kp_conf = cfg["fps"], cfg["keypoint_confidence"]
     check_ratio = cfg["standard"]["low_conf_check_ratio"]
     glb_only = cfg["standard"].get("judge_glb_only", False)
+    model_tau = float(cfg["standard"].get("model_tau", 2.0))
+    models = {}
+    model_dir = p["reports"] / "models"
+    for f in (model_dir.glob("form_model_*.npz") if model_dir.exists() else []):
+        models[f.stem.replace("form_model_", "")] = FormModel.load(f)
+    if models:
+        print(f"정석 이상 탐지 모델: {sorted(models)} (주의 표시 기준 τ={model_tau})")
 
     man = pd.read_csv(p["manifest"], dtype=str).fillna("")
     man = man[man["split"].isin(args.splits) & (man["review_status"] != "EXCLUDE")]
@@ -87,7 +111,8 @@ def main() -> None:
             clip_rows.append(dict(**base, n_reps=0, n_ok=0, n_ng=0, n_check=0, verdict="CHECK",
                                   note=f"이 동작은 {view_group(r['view'], cfg)} 각도에서 판정하지 않음 → 측면·사선으로 촬영"))
             continue
-        std_path = p["standards"] / f"{r['action_id']}_{r['view']}.json"
+        std_dir = p["standards"] if args.standards == "team" else p["reports"] / "standards_glb"
+        std_path = std_dir / f"{r['action_id']}_{r['view']}.json"
         sp = p["sequences"] / f"{r['clip_id']}_sequence.csv"
         if not std_path.exists() or not sp.exists():
             reason = "기준 없음(해당 각도 OK 영상·GLB 필요)" if not std_path.exists() else "sequence 없음"
@@ -102,13 +127,16 @@ def main() -> None:
         tpl_path = p["reference"] / f"{r['action_id']}_{r['view']}_template.json"
         tpl = json.loads(tpl_path.read_text(encoding="utf-8"))["curve"] if tpl_path.exists() else None
 
-        reps, curves = rep_metrics(pd.read_csv(sp), r["view"], fps, kp_conf,
+        seq = pd.read_csv(sp)
+        reps, curves = rep_metrics(seq, r["view"], seq_fps(seq, fps), kp_conf,
                                     cfg["actions"][r["action_id"]].get("leg_combine", "mean"))
         if reps.empty:
             clip_rows.append(dict(**base, n_reps=0, n_ok=0, n_ng=0, n_check=1, verdict="CHECK",
                                   note="1회 구간을 찾지 못함 — 전신이 화면에 들어오게 촬영"))
             continue
         verdicts = []
+        model = models.get(r["action_id"])
+        ser = series_frame(seq, kp_conf) if model is not None else None
         for i, row in reps.iterrows():
             d = row.to_dict()
             d["curve_dist"] = curve_distance(curves[i], tpl) if tpl else np.nan
@@ -117,14 +145,30 @@ def main() -> None:
             else:
                 v, bad, msgs, notes = judge_rep(d, metrics)
             verdicts.append(v)
+            m_score, m_flag, m_top = np.nan, "", ""
+            if model is not None:
+                blk = rep_block(ser, row["start_frame"], row["end_frame"])
+                m_score = round(float(model.score(blk[None])[0]), 3)
+                if m_score > model_tau:
+                    m_flag = "주의"
+                    m_top = ", ".join(f"{s_}@구간{ph}" for s_, ph, _ in model.top_blocks(blk, 2))
             rep_rows.append(dict(**base, **{k: d[k] for k in reps.columns}, curve_dist=d["curve_dist"],
                                  verdict=v, out_of_range="; ".join(bad),
                                  provisional_out="; ".join(notes),
-                                 message=" / ".join(dict.fromkeys(msgs))))
+                                 message=" / ".join(dict.fromkeys(msgs)),
+                                 model_score=m_score, model_flag=m_flag, model_top=m_top))
+        if cfg["actions"][r["action_id"]].get("shallow_attempt_ng"):
+            for k, (s_, e_) in enumerate(shallow_attempts(seq, r["view"], seq_fps(seq, fps), kp_conf,
+                                                          cfg["actions"][r["action_id"]].get("leg_combine", "mean")), 1):
+                verdicts.append("NG")
+                rep_rows.append(dict(**base, rep=f"얕은{k}", start_frame=s_ + 1, end_frame=e_, verdict="NG",
+                                     out_of_range="depth>shallow_attempt",
+                                     message="더 깊이 내려가세요 (1회 동작으로 인정되는 깊이까지 내려가지 않음)"))
         n_ng, n_ok, n_ck = verdicts.count("NG"), verdicts.count("OK"), verdicts.count("CHECK")
         clip_v = "NG" if n_ng else ("OK" if n_ok else "CHECK")
+        n_att = sum(1 for rr in rep_rows[-len(verdicts):] if rr.get("model_flag") == "주의")
         clip_rows.append(dict(**base, n_reps=len(verdicts), n_ok=n_ok, n_ng=n_ng, n_check=n_ck,
-                              verdict=clip_v, note=""))
+                              verdict=clip_v, note=(f"모델 주의 {n_att}회" if n_att else "")))
 
     reps_df = pd.DataFrame(rep_rows)
     clips_df = pd.DataFrame(clip_rows)
@@ -136,11 +180,13 @@ def main() -> None:
             lab = pd.read_csv(lab_path, dtype=str).fillna("")
             lab = lab[lab["label"].isin(["OK", "NG"]) & (lab["checked_by"].str.strip() != "")]
             key = {(c, int(n)): l for c, n, l in zip(lab["clip_id"], lab["rep"], lab["label"])}
-            reps_df["rep_label"] = [key.get((c, int(n)), f) for c, n, f
+            reps_df["rep_label"] = [key.get((c, int(n)), f) if str(n).isdigit() else f for c, n, f
                                     in zip(reps_df["clip_id"], reps_df["rep"], reps_df["form_label"])]
             print(f"회차 라벨 적용: {len(key)}개 ({lab_path.name})")
-    reps_df.to_csv(p["judgments"] / "rep_judgments.csv", index=False, encoding="utf-8-sig")
-    clips_df.to_csv(p["tables"] / "judgment_summary.csv", index=False, encoding="utf-8-sig")
+    tag = "" if args.standards == "team" else "_glb"
+    reps_df.to_csv(p["judgments"] / f"rep_judgments{tag}.csv", index=False, encoding="utf-8-sig")
+    clips_df.to_csv(p["tables"] / f"judgment_summary{tag}.csv", index=False, encoding="utf-8-sig")
+    print(f"[기준: {'team_08 팀 기준' if args.standards == 'team' else 'team_19 GLB 보정 기준'}]")
 
     if clips_df.empty:
         print("판정할 Clip이 없습니다. split 과 standards 를 확인하세요.")
@@ -152,6 +198,11 @@ def main() -> None:
         if len(ng):
             print("\n[NG 1회 구간 메시지]")
             print(ng[["clip_id", "rep", "out_of_range", "message"]].to_string(index=False))
+        if "model_flag" in reps_df:
+            att = reps_df[reps_df["model_flag"] == "주의"]
+            if len(att):
+                print("\n[모델 주의 (판정에는 반영 안 함)]")
+                print(att[["clip_id", "rep", "verdict", "model_score", "model_top"]].to_string(index=False))
 
     print("\n[성능 요약]")
     for split, g in clips_df.groupby("split"):
