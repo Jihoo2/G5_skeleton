@@ -326,8 +326,12 @@ def find_shallow_attempts(leg_ratio, fps: float = 30.0, enter: float = 0.85, nee
             merged[-1][1] = e
         else:
             merged.append([s_, e])
+    # 영상 처음·끝에 걸친 구간은 동작 도중 잘린 것이라 세지 않음
+    # (2026-11-18 EXT_S05 11.6~12.0초: 10회차를 앉기 시작하다 영상 끝 → 얕은 시도로 잘못 잡힘)
+    edge = max(1, int(round(0.1 * fps)))
     return [(s_, e) for s_, e in merged
-            if e - s_ >= min_len_s * fps and rr[s_:e].min() >= stand * need]
+            if e - s_ >= min_len_s * fps and rr[s_:e].min() >= stand * need
+            and s_ >= edge and e <= n - edge]
 
 
 def shallow_attempts(seq: pd.DataFrame, view: str, fps: float = 30.0, kp_conf: float = 0.50,
