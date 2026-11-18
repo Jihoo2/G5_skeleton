@@ -47,7 +47,7 @@ from src.feature_utils import (  # noqa: E402
 )
 from src.team_feature_utils import (  # noqa: E402
     build_frame_features, curve_distance, load_keypoints_csv, load_team_config,
-    rep_metrics, seq_fps, team_paths, torso_reference,
+    rep_metrics, seq_fps, shallow_attempts, team_paths, torso_reference,
 )
 
 # 판정 함수는 team_09에서 그대로 가져온다 (실험과 실제 판정이 어긋나지 않도록)
@@ -148,7 +148,7 @@ EXPERIMENTS = {
                     strengths=[0, 0.05, 0.1, 0.15, 0.2, 0.3], plot="hip sag (A001)"),
     "hip_pike": dict(action="A001", fn=lambda xy, s: hip_shift(xy, -s), target="body_line_max",
                      strengths=[0, 0.1, 0.2, 0.3, 0.4, 0.6], plot="hip pike (A001)"),
-    "lunge_shallow": dict(action="A004", fn=lunge_shallow, target="knee_min",
+    "lunge_shallow": dict(action="A004", fn=lunge_shallow, target="depth",
                           strengths=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], plot="shallow lunge (A004)"),
 }
 
@@ -166,6 +166,9 @@ def judge_seq(seq, r, cfg, metrics, tpl, kp_conf, check_ratio):
         else:
             v, bad, _, _ = team09.judge_rep(d, metrics)
             out.append((v, bad))
+    if cfg["actions"][r["action_id"]].get("shallow_attempt_ng"):  # team_09와 같이 '얕은 시도'도 NG
+        out += [("NG", ["depth>shallow_attempt"])
+                for _ in shallow_attempts(seq, r["view"], seq_fps(seq, cfg["fps"]), kp_conf, combine)]
     return out
 
 

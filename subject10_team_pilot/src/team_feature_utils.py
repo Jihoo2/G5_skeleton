@@ -300,6 +300,43 @@ def find_reps(leg_ratio, fps: float = 30.0, enter: float = 0.85, need: float = 0
             if e - s_ >= min_len_s * fps and rr[s_:e].min() < stand * need], float(stand)
 
 
+def find_shallow_attempts(leg_ratio, fps: float = 30.0, enter: float = 0.85, need: float = 0.80,
+                          merge_gap_s: float = 0.4, min_len_s: float = 0.3):
+    """내려가긴 했지만(서 있을 때 × enter 아래) 1회로 인정되는 깊이(× need)까지는 못 간 구간.
+    find_reps가 버리는 구간이라, 따로 세지 않으면 '덜 내려간 회차'가 판정에서 조용히 사라짐."""
+    r = smooth(leg_ratio)
+    if not np.isfinite(r).any():
+        return []
+    stand = np.nanpercentile(r, 90)
+    rr = np.nan_to_num(r, nan=stand)
+    low = rr < stand * enter
+    segs, i, n = [], 0, len(r)
+    while i < n:
+        if low[i]:
+            j = i
+            while j < n and low[j]:
+                j += 1
+            segs.append([i, j])
+            i = j
+        else:
+            i += 1
+    merged = []
+    for s_, e in segs:
+        if merged and s_ - merged[-1][1] < merge_gap_s * fps:
+            merged[-1][1] = e
+        else:
+            merged.append([s_, e])
+    return [(s_, e) for s_, e in merged
+            if e - s_ >= min_len_s * fps and rr[s_:e].min() >= stand * need]
+
+
+def shallow_attempts(seq: pd.DataFrame, view: str, fps: float = 30.0, kp_conf: float = 0.50,
+                     combine: str = "mean") -> list[tuple[int, int]]:
+    """rep_metrics와 같은 leg_ratio로 '얕은 시도' 구간 (Frame 0부터, 끝 제외)"""
+    ser = resolved_series(seq, view, kp_conf, combine)
+    return find_shallow_attempts(ser["leg_ratio"], fps)
+
+
 def near_side(seq: pd.DataFrame) -> str:
     """측면 영상에서 카메라에 가까운 쪽 (팔·다리 Confidence 평균이 높은 쪽)"""
     def m(s):
