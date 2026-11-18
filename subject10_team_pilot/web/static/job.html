@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>분석 결과 · 팀05</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="job">
+<header><h1><a href="/" style="color:inherit;text-decoration:none">맨몸운동 자세 판정</a></h1><span id="sub">분석 중…</span></header>
+<main>
+  <div id="wait" class="card" style="max-width:640px;margin:0 auto">
+    <p class="hint" id="wmsg">대기 중…</p>
+    <div class="bar"><div id="wbar"></div></div>
+  </div>
+  <div id="res" class="layout" style="display:none">
+    <section class="left" id="left">
+      <div class="stage" id="stage"><video id="v" controls playsinline></video><canvas id="c"></canvas></div>
+      <div class="timeline" id="tl"><div class="cursor" id="cur"></div></div>
+    </section>
+    <section class="right">
+      <div class="card repsbox">
+        <div class="stats" id="stats"></div>
+        <div class="reps" id="reps"></div>
+      </div>
+      <div class="chart card" id="chartbox" style="display:none">
+        <div id="charttitle" style="font-weight:600;font-size:14px"></div>
+        <svg id="chart" viewBox="0 0 480 190" preserveAspectRatio="none"></svg>
+        <div class="legend" id="legend"></div>
+      </div>
+    </section>
+  </div>
+</main>
+<script src="/static/job.js"></script>
+</body>
+</html>

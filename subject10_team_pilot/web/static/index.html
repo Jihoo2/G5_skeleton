@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>맨몸운동 자세 판정 · 팀05</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header><h1>맨몸운동 자세 판정</h1><span>VICON 정석 동작 기준 · 팀05</span></header>
+<main style="max-width:640px">
+  <div class="card">
+    <form id="f">
+      <label>운동 영상</label>
+      <input type="file" name="file" accept="video/*" required>
+      <label>동작</label>
+      <select name="action" id="action"></select>
+      <label>촬영 각도</label>
+      <select name="view">
+        <option value="auto">자동 추정</option>
+        <option value="front">정면</option>
+        <option value="diag">사선 (약 45°)</option>
+        <option value="side">측면</option>
+      </select>
+      <button id="go">분석하기</button>
+    </form>
+    <div id="prog" style="display:none">
+      <p class="hint" id="pmsg">업로드 중…</p>
+      <div class="bar"><div id="pbar"></div></div>
+    </div>
+    <p class="hint" style="margin-top:18px">
+      · 전신이 화면에 들어오게, 한 사람만 나오게 찍어 주세요.<br>
+      · 판정 각도: 스쿼트 점프 = 정면·사선·측면, 런지 = 측면(사선 일부), 버피 = 측면.<br>
+      · 영상은 이 PC에서만 분석·저장되며 외부로 보내지 않습니다.
+    </p>
+  </div>
+</main>
+<script>
+const KO = {A001: "버피", A004: "런지", A008: "스쿼트 점프"};
+fetch("/api/actions").then(r => r.json()).then(list => {
+  const s = document.getElementById("action");
+  list.forEach(a => s.insertAdjacentHTML("beforeend", `<option value="${a.id}">${a.ko} (${a.id})</option>`));
+});
+document.getElementById("f").addEventListener("submit", async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  document.getElementById("go").disabled = true;
+  document.getElementById("prog").style.display = "block";
+  const r = await fetch("/api/jobs", {method: "POST", body: fd});
+  const j = await r.json();
+  if (!r.ok) { document.getElementById("pmsg").innerHTML = `<span class="err">${j.detail}</span>`; return; }
+  location.href = `/jobs/${j.job}`;
+});
+</script>
+</body>
+</html>

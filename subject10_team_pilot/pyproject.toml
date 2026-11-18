@@ -10,4 +10,7 @@ dependencies = [
     "pandas",
     "matplotlib",
     "torch",
+    "fastapi>=0.163.2",
+    "uvicorn[standard]>=0.54.0",
+    "python-multipart>=0.0.34",
 ]
