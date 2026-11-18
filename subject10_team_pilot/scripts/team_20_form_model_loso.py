@@ -63,7 +63,7 @@ def load_team11():
 PERTURB = {
     "A008": [("덜 앉기 40%", "shallow", 0.4, None), ("무릎 모으기 30%", "knee_in", 0.3, {"front"})],
     "A001": [("허리 처짐 15%", "hip_sag", 0.15, {"side"}), ("엉덩이 들림 40%", "hip_pike", 0.4, {"side"})],
-    "A004": [("덜 내려가기 40%", "shallow", 0.4, None)],
+    "A004": [("덜 내려가기 40%", "lunge_shallow", 0.4, None)],
 }
 
 
@@ -88,7 +88,8 @@ def main() -> None:
     model_dir.mkdir(parents=True, exist_ok=True)
     t11 = load_team11()
     exp_fn = {"shallow": t11.shallow, "knee_in": t11.knee_in,
-              "hip_sag": lambda xy, g: t11.hip_shift(xy, g), "hip_pike": lambda xy, g: t11.hip_shift(xy, -g)}
+              "hip_sag": lambda xy, g: t11.hip_shift(xy, g), "hip_pike": lambda xy, g: t11.hip_shift(xy, -g),
+              "lunge_shallow": t11.lunge_shallow}
 
     man = pd.read_csv(p["manifest"], dtype=str).fillna("")
     man = man[~man["review_status"].isin(["EXCLUDE", "RESHOOT"])]

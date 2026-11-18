@@ -5,6 +5,9 @@
   CHECK : 1회 구간을 못 찾음, 또는 무릎·고관절 Confidence 낮은 Frame 비율 > low_conf_check_ratio
           → 자세가 틀렸다고 말하지 않고 "카메라 위치·전신이 보이게" 안내 (교과 2일차 원칙)
   NG    : 핵심 측정값 하나라도 허용 범위 밖 → 벗어난 방향에 맞는 한국어 교정 메시지
+  주의   : (판정은 바꾸지 않음) team_20 정석 이상 탐지 모델 점수 > standard.model_tau(기본 2.0)
+          → 규칙이 보지 않는 '정석과 다른 움직임'을 확인 대상으로 표시. 모델 파일이 없으면 생략
+          (2026-11-18 LOSO 비교에서 모델 검출률이 규칙보다 낮아 NG에는 쓰지 않기로 함)
   OK    : 모든 핵심 측정값이 허용 범위 안
   판정에서 빼는 항목: unreliable(그 각도에서 흔들림이 큰 항목), 팀 OK 영상 없이 GLB 값만 있는 항목
           (GLB만 있는 항목은 config standard.judge_glb_only=true 일 때만 사용 — 촬영 각도·높이 차이로
@@ -34,6 +37,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from src.form_model import FormModel, rep_block, series_frame  # noqa: E402
 from src.team_feature_utils import (  # noqa: E402
     MESSAGES, curve_distance, load_team_config, metrics_for, rep_metrics, seq_fps, team_paths, view_group,
 )
@@ -84,6 +88,13 @@ def main() -> None:
     fps, kp_conf = cfg["fps"], cfg["keypoint_confidence"]
     check_ratio = cfg["standard"]["low_conf_check_ratio"]
     glb_only = cfg["standard"].get("judge_glb_only", False)
+    model_tau = float(cfg["standard"].get("model_tau", 2.0))
+    models = {}
+    model_dir = p["reports"] / "models"
+    for f in (model_dir.glob("form_model_*.npz") if model_dir.exists() else []):
+        models[f.stem.replace("form_model_", "")] = FormModel.load(f)
+    if models:
+        print(f"정석 이상 탐지 모델: {sorted(models)} (주의 표시 기준 τ={model_tau})")
 
     man = pd.read_csv(p["manifest"], dtype=str).fillna("")
     man = man[man["split"].isin(args.splits) & (man["review_status"] != "EXCLUDE")]
@@ -121,6 +132,8 @@ def main() -> None:
                                   note="1회 구간을 찾지 못함 — 전신이 화면에 들어오게 촬영"))
             continue
         verdicts = []
+        model = models.get(r["action_id"])
+        ser = series_frame(seq, kp_conf) if model is not None else None
         for i, row in reps.iterrows():
             d = row.to_dict()
             d["curve_dist"] = curve_distance(curves[i], tpl) if tpl else np.nan
@@ -129,14 +142,23 @@ def main() -> None:
             else:
                 v, bad, msgs, notes = judge_rep(d, metrics)
             verdicts.append(v)
+            m_score, m_flag, m_top = np.nan, "", ""
+            if model is not None:
+                blk = rep_block(ser, row["start_frame"], row["end_frame"])
+                m_score = round(float(model.score(blk[None])[0]), 3)
+                if m_score > model_tau:
+                    m_flag = "주의"
+                    m_top = ", ".join(f"{s_}@구간{ph}" for s_, ph, _ in model.top_blocks(blk, 2))
             rep_rows.append(dict(**base, **{k: d[k] for k in reps.columns}, curve_dist=d["curve_dist"],
                                  verdict=v, out_of_range="; ".join(bad),
                                  provisional_out="; ".join(notes),
-                                 message=" / ".join(dict.fromkeys(msgs))))
+                                 message=" / ".join(dict.fromkeys(msgs)),
+                                 model_score=m_score, model_flag=m_flag, model_top=m_top))
         n_ng, n_ok, n_ck = verdicts.count("NG"), verdicts.count("OK"), verdicts.count("CHECK")
         clip_v = "NG" if n_ng else ("OK" if n_ok else "CHECK")
+        n_att = sum(1 for rr in rep_rows[-len(verdicts):] if rr.get("model_flag") == "주의")
         clip_rows.append(dict(**base, n_reps=len(verdicts), n_ok=n_ok, n_ng=n_ng, n_check=n_ck,
-                              verdict=clip_v, note=""))
+                              verdict=clip_v, note=(f"모델 주의 {n_att}회" if n_att else "")))
 
     reps_df = pd.DataFrame(rep_rows)
     clips_df = pd.DataFrame(clip_rows)
@@ -166,6 +188,11 @@ def main() -> None:
         if len(ng):
             print("\n[NG 1회 구간 메시지]")
             print(ng[["clip_id", "rep", "out_of_range", "message"]].to_string(index=False))
+        if "model_flag" in reps_df:
+            att = reps_df[reps_df["model_flag"] == "주의"]
+            if len(att):
+                print("\n[모델 주의 (판정에는 반영 안 함)]")
+                print(att[["clip_id", "rep", "verdict", "model_score", "model_top"]].to_string(index=False))
 
     print("\n[성능 요약]")
     for split, g in clips_df.groupby("split"):

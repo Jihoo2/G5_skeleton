@@ -167,6 +167,16 @@ class FormModel:
                 for j, s in enumerate(SERIES)]
         return pd.DataFrame(rows)
 
+    @classmethod
+    def load(cls, path) -> "FormModel":
+        d = np.load(path, allow_pickle=True)
+        m = cls()
+        m.mu, m.sd, m.P, m.lam = d["mu"], d["sd"], d["P"], d["lam"]
+        m.k = int(d["k"])
+        m.c_t2, m.c_spe = float(d["c_t2"]), float(d["c_spe"])
+        m.c_blk = float(d["c_blk"]) if "c_blk" in d.files else 1.0
+        return m
+
     def to_npz(self, path, **extra) -> None:
         np.savez_compressed(path, mu=self.mu, sd=self.sd, P=self.P, lam=self.lam, k=self.k,
                             c_t2=self.c_t2, c_spe=self.c_spe, c_blk=self.c_blk, series=np.array(SERIES), **extra)
