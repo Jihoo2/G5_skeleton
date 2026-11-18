@@ -69,6 +69,8 @@ def judge_rep(row: dict, metrics: dict) -> tuple[str, list[str], list[str], list
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--splits", nargs="+", default=["val", "val_ext"])
+    ap.add_argument("--standards", choices=["team", "glb"], default="team",
+                    help="team: team_08 기준(팀 영상 분포+규칙) / glb: team_19 기준(GLB 증강+영상 보정+규칙)")
     ap.add_argument("--final", action="store_true",
                     help="규칙 동결(rules-v1 태그) 후 test, test_ext 를 한 번만 평가")
     args = ap.parse_args()
@@ -95,7 +97,8 @@ def main() -> None:
             clip_rows.append(dict(**base, n_reps=0, n_ok=0, n_ng=0, n_check=0, verdict="CHECK",
                                   note=f"이 동작은 {view_group(r['view'], cfg)} 각도에서 판정하지 않음 → 측면·사선으로 촬영"))
             continue
-        std_path = p["standards"] / f"{r['action_id']}_{r['view']}.json"
+        std_dir = p["standards"] if args.standards == "team" else p["reports"] / "standards_glb"
+        std_path = std_dir / f"{r['action_id']}_{r['view']}.json"
         sp = p["sequences"] / f"{r['clip_id']}_sequence.csv"
         if not std_path.exists() or not sp.exists():
             reason = "기준 없음(해당 각도 OK 영상·GLB 필요)" if not std_path.exists() else "sequence 없음"
@@ -148,8 +151,10 @@ def main() -> None:
             reps_df["rep_label"] = [key.get((c, int(n)), f) for c, n, f
                                     in zip(reps_df["clip_id"], reps_df["rep"], reps_df["form_label"])]
             print(f"회차 라벨 적용: {len(key)}개 ({lab_path.name})")
-    reps_df.to_csv(p["judgments"] / "rep_judgments.csv", index=False, encoding="utf-8-sig")
-    clips_df.to_csv(p["tables"] / "judgment_summary.csv", index=False, encoding="utf-8-sig")
+    tag = "" if args.standards == "team" else "_glb"
+    reps_df.to_csv(p["judgments"] / f"rep_judgments{tag}.csv", index=False, encoding="utf-8-sig")
+    clips_df.to_csv(p["tables"] / f"judgment_summary{tag}.csv", index=False, encoding="utf-8-sig")
+    print(f"[기준: {'team_08 팀 기준' if args.standards == 'team' else 'team_19 GLB 보정 기준'}]")
 
     if clips_df.empty:
         print("판정할 Clip이 없습니다. split 과 standards 를 확인하세요.")

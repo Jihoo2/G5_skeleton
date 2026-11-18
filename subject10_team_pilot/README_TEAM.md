@@ -34,6 +34,8 @@ data/team_projects/team05/{rgb/videos, ext/videos, vicon}
 | 15 | `team_15_build_subject_split.py` | 5일차 30번 | `configs/day05_subject_split.json`(자동 생성), `day05/splits/{train,val,val_ext,test,test_ext}.csv`, `day05/tables/split_coverage.csv` |
 | 16 | `team_16_check_split_leakage.py` | 5일차 31번 | Subject·Clip·원본 영상 overlap 검사 (FAIL 시 종료 코드 1) |
 | 17 | `team_17_demo_frame_split_leakage.py` | 5일차 32번 | Random Frame Split 비교 (`day05/tables/random_frame_split_demo.csv`) |
+| 18 | `team_18_glb_augment.py` | (포트폴리오) GLB 메인 | `glb_aug/<action>_reps.csv·.npz` — 카메라·체형·속도·YOLO 흔들림을 바꾼 GLB 정석 1회 동작 |
+| 19 | `team_19_calibrate_glb.py` | (포트폴리오) 영상 보정 | `standards_glb/`, `tables/glb_calibration.csv` → `team_09_judge.py --standards glb` |
 
 5일차 형식 한 번에: `bash scripts/run_day05.sh` → 결과 폴더 `reports/team_projects/team05/day05/`
 
