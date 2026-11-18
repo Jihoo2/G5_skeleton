@@ -43,7 +43,7 @@ function rangeText(c) {
 function show() {
   const m = R.meta, s = R.summary;
   document.getElementById("wait").style.display = "none";
-  document.getElementById("res").style.display = "grid";
+  document.getElementById("res").style.display = "flex";
   document.getElementById("sub").textContent =
     `${ACTION_KO[m.action] || m.action} · ${VIEW_KO[m.view] || m.view} · ${m.n_frames} Frame · 분석 ${m.seconds}초`;
   document.getElementById("stats").innerHTML =
@@ -52,6 +52,9 @@ function show() {
     (s.attention ? `<span class="pill warn">주의 ${s.attention}</span>` : "");
   const v = document.getElementById("v");
   v.src = `/api/jobs/${job}/video`;
+  v.addEventListener("loadedmetadata", fit);
+  window.addEventListener("resize", fit);
+  fit();
   const list = document.getElementById("reps"), tl = document.getElementById("tl");
   const dur = m.n_frames / m.fps;
   R.events.forEach((e, i) => {
@@ -87,35 +90,67 @@ function select(i, seek = true) {
   document.querySelectorAll(".repcard").forEach(el => el.classList.remove("active"));
   const el = document.getElementById(`rc${i}`);
   el.classList.add("active");
-  el.scrollIntoView({block: "nearest"});
+  el.scrollIntoView({block: "nearest", behavior: "smooth"});
   const e = R.events[i];
   if (seek) { const v = document.getElementById("v"); v.currentTime = e.start_s; v.play(); }
   chart(e);
 }
 
+// 영상 크기를 화면 높이에 맞춤 (세로 영상도 스크롤 없이) — 캔버스는 영상과 같은 크기로 겹침
+function fit() {
+  const v = document.getElementById("v"), stage = document.getElementById("stage");
+  const left = document.getElementById("left"), main = document.querySelector("main");
+  const ar = (v.videoWidth || R.meta.width) / (v.videoHeight || R.meta.height);
+  const availH = main.clientHeight - 28 - 36;            // 패딩, 타임라인
+  const maxW = Math.min(window.innerWidth * 0.62, window.innerWidth - 380);
+  let h = availH, w = h * ar;
+  if (w > maxW) { w = maxW; h = w / ar; }
+  stage.style.width = `${w}px`; stage.style.height = `${h}px`;
+  left.style.width = `${w}px`;
+}
+
+const TH = {A008: 0.55, A004: 0.55};  // 깊이 기준 (판정 규칙과 같음)
 function chart(e) {
   const box = document.getElementById("chartbox");
   if (!e.curve) { box.style.display = "none"; return; }
   box.style.display = "block";
-  document.getElementById("charttitle").textContent = `${e.rep}회 움직임 곡선 — 내 동작 vs VICON 정석 (같은 촬영 각도)`;
-  const svg = document.getElementById("chart"), W = 480, H = 220, pad = 22;
-  const all = [...e.curve.knee, ...e.curve.hip, ...(e.template ? [...e.template.knee, ...e.template.hip] : [])]
-    .filter(x => x !== null);
-  const lo = Math.min(...all, 30) - 5, hi = Math.max(...all, 180) + 5;
-  const pt = (arr) => arr.map((y, k) => y === null ? null :
-    `${pad + (k / (arr.length - 1)) * (W - 2 * pad)},${H - pad - ((y - lo) / (hi - lo)) * (H - 2 * pad)}`)
-    .filter(Boolean).join(" ");
-  const line = (arr, color, op) => arr ? `<polyline fill="none" stroke="${color}" stroke-opacity="${op}" stroke-width="2.5" points="${pt(arr)}"/>` : "";
-  let grid = "";
-  for (let a = Math.ceil(lo / 30) * 30; a <= hi; a += 30) {
-    const y = H - pad - ((a - lo) / (hi - lo)) * (H - 2 * pad);
-    grid += `<line x1="${pad}" x2="${W - pad}" y1="${y}" y2="${y}" stroke="#262c35"/><text x="2" y="${y + 4}" fill="#8b95a3" font-size="10">${a}°</text>`;
+  const svg = document.getElementById("chart"), W = 480, H = 190, pad = 22;
+  const front = R.meta.view === "front";
+  let series, lo, hi, unit, guide = null;
+  if (front) {
+    // 정면: 굽힘 각도는 원근 때문에 거의 안 변함 → 판정에 쓰는 '다리 높이'(서 있을 때 = 1)로 비교
+    const rel = arr => { if (!arr) return null; const m = Math.max(...arr.filter(x => x !== null));
+      return arr.map(x => x === null ? null : x / m); };
+    series = [[rel(e.curve.leg_ratio), "#4c9dff", 1], [rel(e.template && e.template.leg_ratio), "#4c9dff", .35]];
+    lo = 0; hi = 1.05; unit = x => x.toFixed(1);
+    guide = TH[R.meta.action];
+    document.getElementById("charttitle").textContent = `${e.rep}회 다리 높이 — 내 동작 vs VICON 정석 (정면)`;
+    document.getElementById("legend").innerHTML =
+      `<b style="background:#4c9dff"></b>내 동작 <b style="background:#4c9dff;opacity:.35"></b>정석(GLB)` +
+      (guide ? ` <b style="background:#e6484f"></b>기준 ${guide} (이 선보다 아래로 내려가야 OK)` : "");
+  } else {
+    series = [[e.template && e.template.knee, "#4c9dff", .35], [e.template && e.template.hip, "#ffc83d", .35],
+              [e.curve.knee, "#4c9dff", 1], [e.curve.hip, "#ffc83d", 1]];
+    const all = series.flatMap(s => s[0] || []).filter(x => x !== null);
+    lo = Math.min(...all, 30) - 5; hi = Math.max(...all, 180) + 5; unit = x => `${x}°`;
+    document.getElementById("charttitle").textContent = `${e.rep}회 움직임 곡선 — 내 동작 vs VICON 정석 (같은 촬영 각도)`;
+    document.getElementById("legend").innerHTML =
+      `<b style="background:#4c9dff"></b>내 무릎 <b style="background:#4c9dff;opacity:.35"></b>정석 무릎` +
+      `<b style="background:#ffc83d"></b>내 고관절 <b style="background:#ffc83d;opacity:.35"></b>정석 고관절`;
   }
-  svg.innerHTML = grid +
-    line(e.template && e.template.knee, "#4c9dff", 0.35) + line(e.template && e.template.hip, "#ffc83d", 0.35) +
-    line(e.curve.knee, "#4c9dff", 1) + line(e.curve.hip, "#ffc83d", 1) +
-    `<text x="${pad}" y="${H - 4}" fill="#8b95a3" font-size="10">시작</text>` +
-    `<text x="${W - pad - 20}" y="${H - 4}" fill="#8b95a3" font-size="10">끝</text>`;
+  const Y = y => H - pad - ((y - lo) / (hi - lo)) * (H - 2 * pad);
+  const pts = arr => arr.map((y, k) => y === null ? null : `${pad + (k / (arr.length - 1)) * (W - 2 * pad)},${Y(y)}`)
+    .filter(Boolean).join(" ");
+  let g = "";
+  const step = front ? 0.25 : 30;
+  for (let a = Math.ceil(lo / step) * step; a <= hi; a += step) {
+    g += `<line x1="${pad}" x2="${W - pad}" y1="${Y(a)}" y2="${Y(a)}" stroke="#262c35"/>` +
+         `<text x="2" y="${Y(a) + 4}" fill="#8b95a3" font-size="10">${unit(+a.toFixed(2))}</text>`;
+  }
+  if (guide) g += `<line x1="${pad}" x2="${W - pad}" y1="${Y(guide)}" y2="${Y(guide)}" stroke="#e6484f" stroke-dasharray="5 4"/>`;
+  series.forEach(([arr, c, op]) => { if (arr) g += `<polyline fill="none" stroke="${c}" stroke-opacity="${op}" stroke-width="2.5" points="${pts(arr)}"/>`; });
+  g += `<text x="${pad}" y="${H - 4}" fill="#8b95a3" font-size="10">시작</text><text x="${W - pad - 20}" y="${H - 4}" fill="#8b95a3" font-size="10">끝</text>`;
+  svg.innerHTML = g;
 }
 
 function draw() {

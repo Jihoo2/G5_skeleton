@@ -207,9 +207,11 @@ class OnlineJudge:
                              ok=not any(b.startswith(m) for b in bad))
                         for m, sd in (self.metrics or {}).items()]
         c = curves[best]
-        ev["curve"] = {k: [None if not np.isfinite(x) else round(float(x), 2) for x in c[k]] for k in ("knee", "hip")}
+        ev["curve"] = {k: [None if not np.isfinite(x) else round(float(x), 3) for x in c[k]]
+                       for k in ("knee", "hip", "leg_ratio")}
         if self.tpl:
-            ev["template"] = {k: [round(float(x), 2) for x in self.tpl[k]] for k in ("knee", "hip")}
+            ev["template"] = {k: [None if x is None or not np.isfinite(x) else round(float(x), 3) for x in self.tpl[k]]
+                              for k in ("knee", "hip", "leg_ratio") if k in self.tpl}
         if self.model is not None:
             blk = rep_block(series_frame(seq, self.kp_conf), d["start_frame"], d["end_frame"])
             sc = float(self.model.score(blk[None])[0])
