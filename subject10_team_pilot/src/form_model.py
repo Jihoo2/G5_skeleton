@@ -12,7 +12,8 @@
   - 정석 1회들의 평균·표준편차로 표준화 → 주성분 k개 (설명 분산 90%, 최대 8개)
   - T²  : 주성분 공간 안에서 평균에서 먼 정도 (예: 정석보다 훨씬 얕게 앉음)
   - SPE : 주성분으로 설명되지 않는 모양 (예: 정석에 없는 관절 움직임 조합)
-  - score = max(T² / c_T2, SPE / c_SPE), c는 실제 정석 1회를 '사람 단위로 빼고 예측한' 점수의 95% 분위
+  - BLK : 시계열 × 구간(4등분) 블록 중 가장 크게 한쪽으로 벗어난 블록 (국소 오류: 플랭크 구간의 허리 처짐 등)
+  - score = max(T² / c_T2, SPE / c_SPE, BLK / c_BLK), c는 실제 정석 1회를 '사람 단위로 빼고 예측한' 점수의 95% 분위
     → 처음 보는 사람의 정석이면 대략 1 이하
   - 어느 시계열·시점이 벗어났는지 contribution()으로 확인 가능
 """
@@ -78,12 +79,15 @@ class FormModel:
     def __init__(self, var_ratio: float = 0.90, max_k: int = 8):
         self.var_ratio, self.max_k = var_ratio, max_k
 
-    def _core(self, X: np.ndarray, w: np.ndarray) -> dict:
+    def _core(self, X: np.ndarray, w: np.ndarray, is_real: np.ndarray) -> dict:
         w = w / w.sum()
         fin = np.isfinite(X)
-        mu = (np.where(fin, X, 0) * w[:, None]).sum(0) / np.maximum((fin * w[:, None]).sum(0), 1e-12)
+        # 평균·표준편차는 실제 정석으로만 (GLB가 섞이면 '깊이 차이' 같은 오류 방향이 정상 폭으로 커짐)
+        wr = np.where(is_real, w, 0.0) if is_real.any() else w
+        wr = wr / wr.sum()
+        mu = (np.where(fin, X, 0) * wr[:, None]).sum(0) / np.maximum((fin * wr[:, None]).sum(0), 1e-12)
         Xf = np.where(fin, X, mu)
-        sd = np.sqrt(((Xf - mu) ** 2 * w[:, None]).sum(0))
+        sd = np.sqrt(((Xf - mu) ** 2 * wr[:, None]).sum(0))
         col_scale = pd.Series(sd).groupby(np.arange(len(sd)) % len(SERIES)).transform("median").to_numpy()
         sd = np.maximum(sd, 0.1 * col_scale + 1e-6)  # 거의 안 움직이는 칸이 점수를 지배하지 않게
         Z = (Xf - mu) / sd
@@ -97,26 +101,28 @@ class FormModel:
         """groups(실제 1회의 사람 ID)를 주면 기준값 c를 '사람 단위 교차 예측' 점수로 정함.
         학습에 쓴 점수로 정하면 표본이 적을 때 c가 너무 작아져(과적합) 처음 보는 사람을 NG로 판정함."""
         X = X.reshape(len(X), -1).astype(float)
-        self.__dict__.update(self._core(X, w))
-        t2, spe = self._raw(X)
+        self.__dict__.update(self._core(X, w, is_real))
+        t2, spe, blk = self._raw(X)
         ref = is_real if is_real.sum() >= 5 else np.ones(len(X), bool)
-        t2_ref, spe_ref = t2[ref], spe[ref]
+        t2_ref, spe_ref, blk_ref = t2[ref], spe[ref], blk[ref]
         if groups is not None:
             groups = np.asarray(groups, dtype=object)
             uniq = [g for g in pd.unique(groups[is_real]) if g is not None]
             if len(uniq) >= 3:
-                t2_cv, spe_cv = [], []
+                t2_cv, spe_cv, blk_cv = [], [], []
                 full = self.__dict__.copy()
                 for g in uniq:
                     hold = is_real & (groups == g)
-                    self.__dict__.update(self._core(X[~hold], w[~hold]))
-                    a, b = self._raw(X[hold])
+                    self.__dict__.update(self._core(X[~hold], w[~hold], is_real[~hold]))
+                    a, b, c = self._raw(X[hold])
                     t2_cv.append(a)
                     spe_cv.append(b)
+                    blk_cv.append(c)
                 self.__dict__.update(full)
-                t2_ref, spe_ref = np.concatenate(t2_cv), np.concatenate(spe_cv)
+                t2_ref, spe_ref, blk_ref = map(np.concatenate, (t2_cv, spe_cv, blk_cv))
         self.c_t2 = float(np.quantile(t2_ref, 0.95)) or 1.0
         self.c_spe = float(np.quantile(spe_ref, 0.95)) or 1.0
+        self.c_blk = float(np.quantile(blk_ref, 0.95)) or 1.0
         return self
 
     def _z(self, X: np.ndarray) -> np.ndarray:
@@ -129,11 +135,29 @@ class FormModel:
         T = Z @ self.P.T
         t2 = (T ** 2 / self.lam).sum(1) / self.k
         spe = ((Z - T @ self.P) ** 2).mean(1)
-        return t2, spe
+        blk = self._blocks(Z).max(1)
+        return t2, spe, blk
+
+    @staticmethod
+    def _blocks(Z: np.ndarray) -> np.ndarray:
+        """시계열 × 구간(4등분) 블록마다 '평균에서 벗어난 방향이 일관된 정도' = (블록 평균 z)²
+        → 허리 처짐처럼 한 시계열·한 구간에만 나타나는 오류가 384칸 평균에 묻히지 않게"""
+        n = len(Z)
+        z = Z.reshape(n, TEMPLATE_LEN, len(SERIES))
+        out = []
+        for ph in np.array_split(np.arange(TEMPLATE_LEN), 4):
+            out.append(z[:, ph, :].mean(1) ** 2)  # (n, 8)
+        return np.concatenate(out, axis=1)        # (n, 32) = 4구간 × 8시계열
 
     def score(self, X: np.ndarray) -> np.ndarray:
-        t2, spe = self._raw(X)
-        return np.maximum(t2 / self.c_t2, spe / self.c_spe)
+        t2, spe, blk = self._raw(X)
+        return np.maximum.reduce([t2 / self.c_t2, spe / self.c_spe, blk / self.c_blk])
+
+    def top_blocks(self, x: np.ndarray, n: int = 3) -> list[tuple[str, int, float]]:
+        """가장 많이 벗어난 (시계열, 구간 1~4, 정도) — 교정 메시지·발표 자료용"""
+        b = self._blocks(self._z(x[None]))[0] / self.c_blk
+        idx = np.argsort(b)[::-1][:n]
+        return [(SERIES[i % len(SERIES)], i // len(SERIES) + 1, float(b[i])) for i in idx]
 
     def contribution(self, x: np.ndarray) -> pd.DataFrame:
         """1회 동작 하나에서 시계열·구간별로 얼마나 벗어났는지 (표준화 편차의 제곱 평균)"""
@@ -145,7 +169,7 @@ class FormModel:
 
     def to_npz(self, path, **extra) -> None:
         np.savez_compressed(path, mu=self.mu, sd=self.sd, P=self.P, lam=self.lam, k=self.k,
-                            c_t2=self.c_t2, c_spe=self.c_spe, series=np.array(SERIES), **extra)
+                            c_t2=self.c_t2, c_spe=self.c_spe, c_blk=self.c_blk, series=np.array(SERIES), **extra)
 
 
 __all__ = ["SERIES", "FormModel", "rep_block", "resample_block", "series_frame", "COCO_KEYPOINT_NAMES"]

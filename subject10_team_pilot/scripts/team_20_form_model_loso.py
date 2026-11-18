@@ -5,7 +5,8 @@
   실제 정석 1회 : split ∈ {train, val_ext}, form_label=OK, review_status≠EXCLUDE·RESHOOT
                   configs/<team>_rep_labels.csv 에 적힌 회차(덜 앉은 회차 등)는 정석에서 뺌
   GLB 증강      : reports/.../glb_aug/<action>_reps.npz 의 feat_model (team_18 실행 필요)
-                  실제 영상과 체계적으로 다르므로(모캡 수행자가 더 깊게 움직임) 가중치를 낮게:
+                  실제 영상과 체계적으로 다르므로(모캡 수행자가 더 깊게 움직임) 각도별로 실제 정석 평균에
+                  맞춘 뒤 섞음(카메라·체형 다양성만 보탬). 가중치도 낮게:
                   GLB 전체 가중치 = 실제 전체 가중치 × --glb-weight (기본 0.5)
 
 LOSO (Leave-One-Subject-Out)
@@ -135,12 +136,26 @@ def main() -> None:
         gpath = p["reports"] / "glb_aug" / f"{aid}_reps.npz"
         GX = (np.load(gpath)["feat_model"] if gpath.exists() and "feat_model" in np.load(gpath).files
               else np.empty((0,) + RX.shape[1:]))
+        gcsv = p["reports"] / "glb_aug" / f"{aid}_reps.csv"
+        GV = pd.read_csv(gcsv)["view"].to_numpy() if len(GX) and gcsv.exists() else np.array([], object)
         if args.glb_weight > 0 and len(GX) == 0:
             print(f"[{aid}] glb_aug feat_model 없음 → team_18을 다시 실행하세요 (지금은 실제 영상만 사용)")
 
+        def align_glb(mask):
+            """GLB를 각도별로 실제 정석 평균에 맞춤 → GLB는 깊이 차이가 아니라 카메라·체형 다양성만 보탬"""
+            G = GX.astype(float).copy()
+            real_views = meta.loc[mask, "view"].map(lambda v: view_group(v, cfg)).to_numpy()
+            all_mean = np.nanmean(RX[mask], 0)
+            for v in np.unique(GV):
+                gm = GV == v
+                rm = real_views == v
+                target = np.nanmean(RX[mask][rm], 0) if rm.sum() >= 3 else all_mean
+                G[gm] += np.nan_to_num(target - np.nanmean(G[gm], 0))
+            return G
+
         def fit(mask):
             Xr = RX[mask]
-            X = np.concatenate([Xr, GX]) if args.glb_weight > 0 and len(GX) else Xr
+            X = np.concatenate([Xr, align_glb(mask)]) if args.glb_weight > 0 and len(GX) else Xr
             w = np.ones(len(X))
             if len(X) > len(Xr):
                 w[len(Xr):] = args.glb_weight * len(Xr) / len(GX)
