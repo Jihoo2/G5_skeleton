@@ -245,6 +245,16 @@ def build_frame_features(frame_id, time_sec, xy, conf, view: str,
 # ------------------------------------------------------------------
 # 1회(rep) 구간과 측정값
 # ------------------------------------------------------------------
+def seq_fps(seq: pd.DataFrame, default: float = 30.0) -> float:
+    """Sequence의 time_sec 간격으로 실제 fps 계산 (외부 영상은 24·25fps 등 제각각).
+    team_03이 영상의 실제 fps로 time_sec를 기록하므로, 설정값(fps=30) 대신 이 값을 씁니다."""
+    if "time_sec" not in seq:
+        return default
+    dt = np.diff(pd.to_numeric(seq["time_sec"], errors="coerce").to_numpy(float))
+    dt = dt[np.isfinite(dt) & (dt > 0)]
+    return float(round(1.0 / np.median(dt), 3)) if len(dt) else default
+
+
 def smooth(x, k: int = 7):
     s = pd.Series(np.asarray(x, dtype=float))
     return s.rolling(k, center=True, min_periods=1).median().rolling(k, center=True, min_periods=1).mean().to_numpy()

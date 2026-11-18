@@ -46,7 +46,7 @@ from src.feature_utils import (  # noqa: E402
 )
 from src.team_feature_utils import (  # noqa: E402
     build_frame_features, curve_distance, load_keypoints_csv, load_team_config,
-    rep_metrics, team_paths, torso_reference,
+    rep_metrics, seq_fps, team_paths, torso_reference,
 )
 
 # 판정 함수는 team_09에서 그대로 가져온다 (실험과 실제 판정이 어긋나지 않도록)
@@ -116,7 +116,7 @@ EXPERIMENTS = {
 def judge_seq(seq, r, cfg, metrics, tpl, kp_conf, check_ratio):
     """team_09 main()의 1회 단위 판정과 같은 순서"""
     combine = cfg["actions"][r["action_id"]].get("leg_combine", "mean")
-    reps, curves = rep_metrics(seq, r["view"], cfg["fps"], kp_conf, combine)
+    reps, curves = rep_metrics(seq, r["view"], seq_fps(seq, cfg["fps"]), kp_conf, combine)
     out = []
     for i, row in reps.iterrows():
         d = row.to_dict()

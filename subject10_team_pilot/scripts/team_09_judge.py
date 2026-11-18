@@ -35,7 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.team_feature_utils import (  # noqa: E402
-    MESSAGES, curve_distance, load_team_config, metrics_for, rep_metrics, team_paths, view_group,
+    MESSAGES, curve_distance, load_team_config, metrics_for, rep_metrics, seq_fps, team_paths, view_group,
 )
 
 
@@ -110,7 +110,8 @@ def main() -> None:
         tpl_path = p["reference"] / f"{r['action_id']}_{r['view']}_template.json"
         tpl = json.loads(tpl_path.read_text(encoding="utf-8"))["curve"] if tpl_path.exists() else None
 
-        reps, curves = rep_metrics(pd.read_csv(sp), r["view"], fps, kp_conf,
+        seq = pd.read_csv(sp)
+        reps, curves = rep_metrics(seq, r["view"], seq_fps(seq, fps), kp_conf,
                                     cfg["actions"][r["action_id"]].get("leg_combine", "mean"))
         if reps.empty:
             clip_rows.append(dict(**base, n_reps=0, n_ok=0, n_ng=0, n_check=1, verdict="CHECK",
