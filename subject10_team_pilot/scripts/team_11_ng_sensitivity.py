@@ -23,7 +23,7 @@
 
 실행
   python scripts/team_11_ng_sensitivity.py
-  python scripts/team_11_ng_sensitivity.py --splits val test_ext     # 사용할 split 지정
+  python scripts/team_11_ng_sensitivity.py --splits val val_ext      # 사용할 split 지정 (test 계열은 사용 불가)
   python scripts/team_11_ng_sensitivity.py --only shallow knee_in    # 일부 변형만
 """
 from __future__ import annotations
@@ -131,10 +131,12 @@ def judge_seq(seq, r, cfg, metrics, tpl, kp_conf, check_ratio):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--splits", nargs="+", default=["train", "val", "test_ext"],
+    ap.add_argument("--splits", nargs="+", default=["train", "val", "val_ext"],
                     help="정석 규칙 판정이라 train 영상도 공정하게 쓸 수 있음 (form_label=OK만 사용)")
     ap.add_argument("--only", nargs="+", choices=list(EXPERIMENTS), default=list(EXPERIMENTS))
     args = ap.parse_args()
+    if set(args.splits) & {"test", "test_ext"}:
+        raise SystemExit("[중지] test / test_ext 는 규칙 조정 실험에 쓰지 않습니다 (Test 누수).")
 
     cfg = load_team_config()
     p = team_paths(cfg)

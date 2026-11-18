@@ -159,6 +159,24 @@
     "val": [
       "S03"
     ],
-    "test": []
+    "val_ext": [
+      "EXT_S01",
+      "EXT_S02",
+      "EXT_S04",
+      "EXT_S05",
+      "EXT_S06",
+      "EXT_S07",
+      "EXT_S08",
+      "EXT_S09",
+      "EXT_S10",
+      "EXT_S11",
+      "EXT_S12",
+      "EXT_S13",
+      "EXT_S14",
+      "EXT_S15"
+    ],
+    "test": [],
+    "test_ext": [],
+    "note": "val·val_ext: 규칙 조정에 사용 가능 / test·test_ext: 규칙 동결(rules-v1 태그) 후 team_09 --final 로 한 번만 평가. 새 외부 영상은 여기 test_ext 에 사람 ID를 직접 적어야 배정됨(미지정 시 unassigned)"
   }
 }

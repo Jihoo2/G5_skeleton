@@ -16,8 +16,10 @@
   화면: split별 OK Clip 오판정률(false NG) / NG 라벨 Clip 검출률(있을 때만)
 
 실행
-  python scripts/team_09_judge.py                       # val, test, test_ext
-  python scripts/team_09_judge.py --splits train val test test_ext
+  python scripts/team_09_judge.py                       # val, val_ext (규칙 조정용)
+  python scripts/team_09_judge.py --splits train val val_ext
+  python scripts/team_09_judge.py --final               # 규칙 동결 후 test, test_ext 한 번만
+test / test_ext 는 --final 없이는 판정하지 않습니다 (결과를 보고 규칙을 고치면 Test 누수).
 """
 from __future__ import annotations
 
@@ -66,8 +68,14 @@ def judge_rep(row: dict, metrics: dict) -> tuple[str, list[str], list[str], list
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--splits", nargs="+", default=["val", "test", "test_ext"])
+    ap.add_argument("--splits", nargs="+", default=["val", "val_ext"])
+    ap.add_argument("--final", action="store_true",
+                    help="규칙 동결(rules-v1 태그) 후 test, test_ext 를 한 번만 평가")
     args = ap.parse_args()
+    if args.final:
+        args.splits = ["test", "test_ext"]
+    elif set(args.splits) & {"test", "test_ext"}:
+        raise SystemExit("[중지] test / test_ext 는 규칙을 동결한 뒤 --final 로만 판정합니다.")
 
     cfg = load_team_config()
     p = team_paths(cfg)

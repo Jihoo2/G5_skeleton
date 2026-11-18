@@ -23,10 +23,10 @@ data/team_projects/team05/{rgb/videos, ext/videos, vicon}
 | 3 | `team_03_extract_keypoints.py` | 1·2일차 YOLO Pose | `keypoints/<clip_id>_keypoints.csv` |
 | 4 | `team_04_build_sequences.py` | 3일차 Feature + 4일차 Sequence | `sequences/<clip_id>_sequence.csv` |
 | 5 | `team_05_sequence_qa.py` | 4·5일차 QA | `tables/sequence_qa.csv` → **Manifest의 review_status 직접 기입** |
-| 6 | `team_06_make_split.py` | 5일차 Subject-wise Split | Manifest split 열, `tables/dataset_split.csv` |
+| 6 | `team_06_make_split.py` | 5일차 Subject-wise Split | Manifest split 열(train·val·val_ext·test·test_ext), `tables/dataset_split.csv` |
 | 7 | `team_07_build_reference.py` | VICON 별도 실험 | `reference/<동작>_<각도>_template.json` |
 | 8 | `team_08_fit_standard.py` | (팀) 정석 허용 범위 | `standards/<동작>_<각도>.json` |
-| 9 | `team_09_judge.py` | 6일차 평가 자리 | `judgments/rep_judgments.csv`, `tables/judgment_summary.csv` |
+| 9 | `team_09_judge.py` | 6일차 평가 자리 | `judgments/rep_judgments.csv`, `tables/judgment_summary.csv` (기본 val·val_ext, test 계열은 `--final`) |
 | 10 | `team_10_render_overlay.py --clip <id>` | 10일차 실패 분석 | `overlays/<clip_id>_overlay.mp4` (뼈대 + 1회 판정 표시, 선택 실행) |
 
 ```bash
