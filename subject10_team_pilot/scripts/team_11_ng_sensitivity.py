@@ -166,10 +166,13 @@ def judge_seq(seq, r, cfg, metrics, tpl, kp_conf, check_ratio):
         else:
             v, bad, _, _ = team09.judge_rep(d, metrics)
             out.append((v, bad))
-    if cfg["actions"][r["action_id"]].get("shallow_attempt_ng"):  # team_09와 같이 '얕은 시도'도 NG
+    if shallow_ng_on(cfg["actions"][r["action_id"]], r["view"], cfg):  # team_09와 같이 '얕은 시도'도 NG
         out += [("NG", ["depth>shallow_attempt"])
                 for _ in shallow_attempts(seq, r["view"], seq_fps(seq, cfg["fps"]), kp_conf, combine)]
     return out
+
+
+from src.team_feature_utils import shallow_ng_on  # noqa: E402  (team_09와 같은 얕은 시도 적용 규칙)
 
 
 def main() -> None:
