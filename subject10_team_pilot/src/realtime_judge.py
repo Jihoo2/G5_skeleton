@@ -10,6 +10,8 @@
        (build_frame_features → rep_metrics → judge_rep)로 계산 → 녹화 판정과 같은 기준·메시지
      1회로 인정되는 깊이에 못 미쳤으면 '얕은 시도' NG (shallow_attempt_ng 동작만)
 모델(team_20)이 있으면 같은 1회에 '주의' 점수를 붙입니다 (판정은 바꾸지 않음).
+측정값이 기준값 ±boundary_margin 안이면 '경계'를 붙입니다 (판정은 바꾸지 않음, team_09 와 같은 함수).
+실행 방식 값(대기·버퍼·확정 대기·측정 앞뒤 구간)은 configs/team_realtime.json 에서 읽습니다.
 """
 from __future__ import annotations
 
@@ -33,11 +35,33 @@ _spec = importlib.util.spec_from_file_location("team09", ROOT / "scripts" / "tea
 team09 = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(team09)
 
+# 아래 4개는 녹화 판정의 find_reps와 반드시 같아야 하므로 설정 파일로 빼지 않습니다.
 ENTER, NEED = 0.85, 0.80           # find_reps와 같은 값
 EXIT_HOLD_S, MIN_LEN_S = 0.4, 0.3  # merge_gap_s, min_len_s
-PRE_S, POST_S = 1.2, 0.5           # 측정할 때 1회 앞뒤로 붙이는 여유
-BUFFER_S, STAND_WIN_S, WARMUP_S = 20.0, 8.0, 1.0
 SMOOTH_LAG = 7  # smooth()의 가운데 정렬 창(7) 때문에 끝쪽 값이 확정되기까지 필요한 Frame
+
+# 실행 방식 설정(교과 7일차 day07_realtime.json 자리) — configs/team_realtime.json, 없으면 아래 기본값
+RUNTIME_DEFAULTS = {
+    "warmup_s": 1.0,    # 시작 후 판정 대기 (전신이 보이게 서 있는 시간)
+    "buffer_s": 20.0,   # 최근 몇 초의 Frame을 기억할지 (회차 감지·기준 높이 계산 범위)
+    "settle_s": 0.4,    # 1회가 끝나고 이만큼 + 평활화 여유가 지나야 확정 (find_reps merge_gap_s와 같게 시작)
+    "pre_s": 1.2,       # 측정할 때 1회 앞에 붙이는 구간 (서 있는 기준 높이를 잡는 데 쓰임)
+    "post_s": 0.5,      # 측정할 때 1회 뒤에 붙이는 구간
+}
+RUNTIME_PATH = ROOT / "configs" / "team_realtime.json"
+
+
+def load_runtime_config(path: Path | None = None) -> dict:
+    """configs/team_realtime.json 을 읽어 기본값 위에 덮어씀 ('_'로 시작하는 키는 설명이라 무시)"""
+    rt = dict(RUNTIME_DEFAULTS)
+    path = path or RUNTIME_PATH
+    if path.exists():
+        user = json.loads(path.read_text(encoding="utf-8"))
+        unknown = [k for k in user if not k.startswith("_") and k not in RUNTIME_DEFAULTS]
+        if unknown:
+            raise ValueError(f"{path.name}: 알 수 없는 설정 {unknown} (가능: {sorted(RUNTIME_DEFAULTS)})")
+        rt.update({k: float(v) for k, v in user.items() if not k.startswith("_")})
+    return rt
 
 
 def estimate_view(xy_buf: np.ndarray) -> str:
@@ -54,14 +78,16 @@ def estimate_view(xy_buf: np.ndarray) -> str:
 
 class OnlineJudge:
     def __init__(self, cfg: dict, action_id: str, view: str, p: dict, fps: float = 30.0,
-                 standards: str = "team", use_model: bool = True):
+                 standards: str = "team", use_model: bool = True, rt: dict | None = None):
         self.cfg, self.aid, self.fps = cfg, action_id, float(fps)
+        self.rt = rt if rt is not None else load_runtime_config()
         self.action = cfg["actions"][action_id]
         self.kp_conf = cfg["keypoint_confidence"]
         self.check_ratio = cfg["standard"]["low_conf_check_ratio"]
+        self.margin = float(cfg["standard"].get("boundary_margin", 0.02))
         self.combine = self.action.get("leg_combine", "mean")
         self.p, self.std_kind = p, standards
-        self.n_buf = int(BUFFER_S * fps)
+        self.n_buf = int(self.rt["buffer_s"] * fps)
         self.fid, self.t = deque(maxlen=self.n_buf), deque(maxlen=self.n_buf)
         self.xy, self.conf = deque(maxlen=self.n_buf), deque(maxlen=self.n_buf)
         self.lr = deque(maxlen=self.n_buf)        # 감지용 (발목 y − 골반 y, 몸통 길이)
@@ -114,13 +140,13 @@ class OnlineJudge:
         self.conf.append(np.asarray(conf, float))
         self.lr.append(self._raw_leg(np.asarray(xy, float)))
         self.total += 1
-        if len(self.fid) < WARMUP_S * self.fps:
+        if len(self.fid) < self.rt["warmup_s"] * self.fps:
             self.state = "WARMUP"
             return []
         if self.view is None:
             self.view = estimate_view(np.array(self.xy))
             self._load_standard()
-        settle = len(self.fid) - (int(round(0.4 * self.fps)) + SMOOTH_LAG)
+        settle = len(self.fid) - (int(round(self.rt["settle_s"] * self.fps)) + SMOOTH_LAG)
         out = self._emit(settle)
         lr = self._lr_buffer()
         stand = np.nanpercentile(lr, 90) if np.isfinite(lr).any() else np.nan
@@ -162,8 +188,8 @@ class OnlineJudge:
     def _finish(self, s_abs: int, e_abs: int, kind: str = "rep") -> list[dict]:
         first = self.total - len(self.fid)            # 버퍼 첫 칸의 절대 위치
         s, e = max(0, s_abs - first), e_abs - first   # 버퍼 안 위치
-        a = max(0, s - int(PRE_S * self.fps))
-        b = min(len(self.fid), e + int(POST_S * self.fps))
+        a = max(0, s - int(self.rt["pre_s"] * self.fps))
+        b = min(len(self.fid), e + int(self.rt["post_s"] * self.fps))
         fid = np.array(list(self.fid)[a:b])
         t = np.array(list(self.t)[a:b])
         xy = np.array(list(self.xy)[a:b])
@@ -197,10 +223,15 @@ class OnlineJudge:
             v, bad, msgs = "CHECK", [], ["관절이 잘 보이지 않습니다. 카메라 위치를 조정하세요"]
         else:
             v, bad, msgs, _ = team09.judge_rep(d, self.metrics)
+        bnd = team09.near_boundary(d, self.metrics, self.margin) if v != "CHECK" and self.metrics else []
         self.counts[v] += 1
         ev = dict(kind="rep", rep=self.rep_no, verdict=v, out_of_range="; ".join(bad),
                   message=" / ".join(dict.fromkeys(msgs)) if msgs else ("좋습니다" if v == "OK" else ""),
+                  boundary="; ".join(bnd), view=view,
                   depth=d.get("depth"), knee_min=d.get("knee_min"), **base)
+        # 로그용: 판정에 쓴 측정값 (team_21 이 v_<측정값> 컬럼으로 저장)
+        ev["values"] = {m: (None if not np.isfinite(d.get(m, np.nan)) else round(float(d[m]), 4))
+                        for m in (self.metrics or {})}
         # 웹 결과 화면용: 측정값 vs 기준, 1회 곡선 vs GLB 정석 곡선
         ev["checks"] = [dict(metric=m, value=None if not np.isfinite(d.get(m, np.nan)) else round(float(d[m]), 3),
                              lo=sd.get("lo"), hi=sd.get("hi"), provisional=bool(sd.get("provisional")),
@@ -220,4 +251,4 @@ class OnlineJudge:
         return [ev]
 
 
-__all__ = ["OnlineJudge", "estimate_view", "MESSAGES"]
+__all__ = ["OnlineJudge", "estimate_view", "load_runtime_config", "RUNTIME_DEFAULTS", "MESSAGES"]
