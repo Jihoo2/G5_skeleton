@@ -8,7 +8,7 @@
      영상 파일 끝에서는 flush()로 남은 회차를 녹화 판정과 같은 규칙으로 마무리
   2) 측정·판정(1회가 끝날 때 한 번): 그 1회 앞뒤를 포함한 최근 구간을 team_09와 같은 함수
        (build_frame_features → rep_metrics → judge_rep)로 계산 → 녹화 판정과 같은 기준·메시지
-     1회로 인정되는 깊이에 못 미쳤으면 '얕은 시도' NG (shallow_attempt_ng 동작만)
+     1회로 인정되는 깊이에 못 미쳤으면 '얕은 시도' NG (shallow_ng_on: shallow_attempt_ng 동작·지정 각도만)
 모델(team_20)이 있으면 같은 1회에 '주의' 점수를 붙입니다 (판정은 바꾸지 않음).
 측정값이 기준값 ±boundary_margin 안이면 '경계'를 붙입니다 (판정은 바꾸지 않음, team_09 와 같은 함수).
 실행 방식 값(대기·버퍼·확정 대기·측정 앞뒤 구간)은 configs/team_realtime.json 에서 읽습니다.
@@ -27,7 +27,7 @@ from src.feature_utils import LEFT_ANKLE, LEFT_HIP, LEFT_SHOULDER, RIGHT_ANKLE, 
 from src.form_model import FormModel, rep_block, series_frame
 from src.team_feature_utils import (
     MESSAGES, build_frame_features, curve_distance, find_reps, find_shallow_attempts, metrics_for,
-    rep_metrics, rep_min_len, shallow_attempts, view_group,
+    rep_metrics, rep_min_len, shallow_attempts, shallow_ng_on, view_group,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -162,7 +162,7 @@ class OnlineJudge:
         out = []
         reps, _ = find_reps(lr, self.fps, min_len_s=self.min_rep)
         segs = [(s, e, "rep") for s, e in reps]
-        if self.action.get("shallow_attempt_ng"):
+        if shallow_ng_on(self.action, self.view or "front", self.cfg):
             segs += [(s, e, "shallow") for s, e in find_shallow_attempts(lr, self.fps)]
         for s, e, kind in sorted(segs):
             s_abs, e_abs = s + first, e + first
@@ -208,7 +208,7 @@ class OnlineJudge:
         base = dict(start_frame=int(fid[lo]), end_frame=int(fid[min(hi, len(fid) - 1)]),
                     start_s=round(float(t[lo]), 2), end_s=round(float(t[min(hi, len(t) - 1)]), 2))
         if kind == "shallow" or best is None:
-            if kind == "shallow" or (self.action.get("shallow_attempt_ng") and shallow_attempts(
+            if kind == "shallow" or (shallow_ng_on(self.action, view, self.cfg) and shallow_attempts(
                     seq, view, self.fps, self.kp_conf, self.combine)):
                 self.shallow_no += 1
                 self.counts["NG"] += 1

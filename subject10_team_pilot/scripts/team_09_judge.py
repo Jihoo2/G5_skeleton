@@ -6,7 +6,7 @@
           → 자세가 틀렸다고 말하지 않고 "카메라 위치·전신이 보이게" 안내 (교과 2일차 원칙)
   NG    : 핵심 측정값 하나라도 허용 범위 밖 → 벗어난 방향에 맞는 한국어 교정 메시지
   얕은 시도: 내려가긴 했지만 1회로 인정되는 깊이까지 못 간 구간 → NG "더 깊이 내려가세요"
-          (actions.*.shallow_attempt_ng=true 인 동작만: 런지·스쿼트 점프)
+          (actions.*.shallow_attempt_ng=true 인 동작만: 런지(측면만, shallow_attempt_views)·스쿼트 점프)
   주의   : (판정은 바꾸지 않음) team_20 정석 이상 탐지 모델 점수 > standard.model_tau(기본 2.0)
           → 규칙이 보지 않는 '정석과 다른 움직임'을 확인 대상으로 표시. 모델 파일이 없으면 생략
           (2026-11-18 LOSO 비교에서 모델 검출률이 규칙보다 낮아 NG에는 쓰지 않기로 함)
@@ -45,7 +45,7 @@ sys.path.insert(0, str(ROOT))
 from src.form_model import FormModel, rep_block, series_frame  # noqa: E402
 from src.team_feature_utils import (  # noqa: E402
     MESSAGES, curve_distance, load_team_config, metrics_for, rep_metrics, rep_min_len, seq_fps, shallow_attempts,
-    team_paths, view_group,
+    shallow_ng_on, team_paths, view_group,
 )
 
 
@@ -181,7 +181,7 @@ def main() -> None:
                                  provisional_out="; ".join(notes), boundary="; ".join(bnd),
                                  message=" / ".join(dict.fromkeys(msgs)),
                                  model_score=m_score, model_flag=m_flag, model_top=m_top))
-        if cfg["actions"][r["action_id"]].get("shallow_attempt_ng"):
+        if shallow_ng_on(cfg["actions"][r["action_id"]], r["view"], cfg):
             for k, (s_, e_) in enumerate(shallow_attempts(seq, r["view"], seq_fps(seq, fps), kp_conf,
                                                           cfg["actions"][r["action_id"]].get("leg_combine", "mean")), 1):
                 verdicts.append("NG")

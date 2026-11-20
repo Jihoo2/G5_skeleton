@@ -58,6 +58,17 @@ def rep_min_len(action: dict | None) -> float:
     return float((action or {}).get("min_rep_s", DEFAULT_MIN_REP_S))
 
 
+def shallow_ng_on(action: dict | None, view: str, cfg: dict) -> bool:
+    """'얕은 시도' NG를 이 동작·각도에 적용할지. 녹화 판정(team_09)과 실시간(realtime_judge)이 같이 씀.
+    actions.*.shallow_attempt_ng=true 이고, shallow_attempt_views 가 있으면 그 각도에서만 적용.
+    예) 런지: 대각은 정석 깊이가 넓게 퍼져 깊이로 판정하지 않으므로 얕은 시도도 측면에서만"""
+    action = action or {}
+    if not action.get("shallow_attempt_ng"):
+        return False
+    views = action.get("shallow_attempt_views")
+    return views is None or view_group(view, cfg) in views
+
+
 # ------------------------------------------------------------------
 # 설정·경로
 # ------------------------------------------------------------------
