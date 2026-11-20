@@ -6,11 +6,14 @@
           → 자세가 틀렸다고 말하지 않고 "카메라 위치·전신이 보이게" 안내 (교과 2일차 원칙)
   NG    : 핵심 측정값 하나라도 허용 범위 밖 → 벗어난 방향에 맞는 한국어 교정 메시지
   얕은 시도: 내려가긴 했지만 1회로 인정되는 깊이까지 못 간 구간 → NG "더 깊이 내려가세요"
-          (actions.*.shallow_attempt_ng=true 인 동작만: 런지·스쿼트 점프)
+          (actions.*.shallow_attempt_ng=true 인 동작만: 런지(측면만, shallow_attempt_views)·스쿼트 점프)
   주의   : (판정은 바꾸지 않음) team_20 정석 이상 탐지 모델 점수 > standard.model_tau(기본 2.0)
           → 규칙이 보지 않는 '정석과 다른 움직임'을 확인 대상으로 표시. 모델 파일이 없으면 생략
           (2026-11-18 LOSO 비교에서 모델 검출률이 규칙보다 낮아 NG에는 쓰지 않기로 함)
   OK    : 모든 핵심 측정값이 허용 범위 안
+  경계   : (판정은 바꾸지 않음) 측정값이 기준값의 ±standard.boundary_margin(기본 2%) 안
+          → 기준선 바로 위아래라서 촬영 조건·기준 높이 차이로 OK/NG가 뒤집힐 수 있는 회차
+          (2026-11-20 실시간 replay: 불일치 4건 중 2건이 depth 0.547/0.552 vs 기준 0.55)
   판정에서 빼는 항목: unreliable(그 각도에서 흔들림이 큰 항목), 팀 OK 영상 없이 GLB 값만 있는 항목
           (GLB만 있는 항목은 config standard.judge_glb_only=true 일 때만 사용 — 촬영 각도·높이 차이로
            GLB 값이 웹캠과 어긋나므로 기본은 사용하지 않음)
@@ -41,8 +44,8 @@ sys.path.insert(0, str(ROOT))
 
 from src.form_model import FormModel, rep_block, series_frame  # noqa: E402
 from src.team_feature_utils import (  # noqa: E402
-    MESSAGES, curve_distance, load_team_config, metrics_for, rep_metrics, seq_fps, shallow_attempts, team_paths,
-    view_group,
+    MESSAGES, curve_distance, load_team_config, metrics_for, rep_metrics, rep_min_len, seq_fps, shallow_attempts,
+    shallow_ng_on, team_paths, view_group,
 )
 
 
@@ -73,6 +76,24 @@ def judge_rep(row: dict, metrics: dict) -> tuple[str, list[str], list[str], list
     return ("NG" if bad else "OK"), bad, msgs, notes
 
 
+def near_boundary(row: dict, metrics: dict, margin: float) -> list[str]:
+    """판정에 쓰는 기준값(lo/hi)의 ±margin(비율) 안에 있는 측정값 목록. 판정은 바꾸지 않는다.
+    녹화 판정(team_09)과 실시간 판정(src/realtime_judge.py)이 같은 함수를 쓴다."""
+    out = []
+    if margin <= 0:
+        return out
+    for m, s in metrics.items():
+        if s.get("provisional") and s.get("source") != "rule":
+            continue  # 임시 기준은 NG에 쓰지 않으므로 경계도 표시하지 않음
+        v = row.get(m)
+        if v is None or not np.isfinite(v):
+            continue
+        for bound in (s.get("lo"), s.get("hi")):
+            if bound is not None and abs(v - bound) <= margin * max(abs(bound), 1e-9):
+                out.append(f"{m}≈{bound}")
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--splits", nargs="+", default=["val", "val_ext"])
@@ -92,6 +113,7 @@ def main() -> None:
     check_ratio = cfg["standard"]["low_conf_check_ratio"]
     glb_only = cfg["standard"].get("judge_glb_only", False)
     model_tau = float(cfg["standard"].get("model_tau", 2.0))
+    margin = float(cfg["standard"].get("boundary_margin", 0.02))
     models = {}
     model_dir = p["reports"] / "models"
     for f in (model_dir.glob("form_model_*.npz") if model_dir.exists() else []):
@@ -129,7 +151,8 @@ def main() -> None:
 
         seq = pd.read_csv(sp)
         reps, curves = rep_metrics(seq, r["view"], seq_fps(seq, fps), kp_conf,
-                                    cfg["actions"][r["action_id"]].get("leg_combine", "mean"))
+                                    cfg["actions"][r["action_id"]].get("leg_combine", "mean"),
+                                    min_len_s=rep_min_len(cfg["actions"][r["action_id"]]))
         if reps.empty:
             clip_rows.append(dict(**base, n_reps=0, n_ok=0, n_ng=0, n_check=1, verdict="CHECK",
                                   note="1회 구간을 찾지 못함 — 전신이 화면에 들어오게 촬영"))
@@ -144,6 +167,7 @@ def main() -> None:
                 v, bad, msgs, notes = "CHECK", [], ["관절이 잘 보이지 않습니다. 카메라 위치를 조정하세요"], []
             else:
                 v, bad, msgs, notes = judge_rep(d, metrics)
+            bnd = near_boundary(d, metrics, margin) if v != "CHECK" else []
             verdicts.append(v)
             m_score, m_flag, m_top = np.nan, "", ""
             if model is not None:
@@ -154,10 +178,10 @@ def main() -> None:
                     m_top = ", ".join(f"{s_}@구간{ph}" for s_, ph, _ in model.top_blocks(blk, 2))
             rep_rows.append(dict(**base, **{k: d[k] for k in reps.columns}, curve_dist=d["curve_dist"],
                                  verdict=v, out_of_range="; ".join(bad),
-                                 provisional_out="; ".join(notes),
+                                 provisional_out="; ".join(notes), boundary="; ".join(bnd),
                                  message=" / ".join(dict.fromkeys(msgs)),
                                  model_score=m_score, model_flag=m_flag, model_top=m_top))
-        if cfg["actions"][r["action_id"]].get("shallow_attempt_ng"):
+        if shallow_ng_on(cfg["actions"][r["action_id"]], r["view"], cfg):
             for k, (s_, e_) in enumerate(shallow_attempts(seq, r["view"], seq_fps(seq, fps), kp_conf,
                                                           cfg["actions"][r["action_id"]].get("leg_combine", "mean")), 1):
                 verdicts.append("NG")
@@ -198,6 +222,11 @@ def main() -> None:
         if len(ng):
             print("\n[NG 1회 구간 메시지]")
             print(ng[["clip_id", "rep", "out_of_range", "message"]].to_string(index=False))
+        if "boundary" in reps_df:
+            bd = reps_df[reps_df["boundary"].fillna("").astype(str) != ""]
+            if len(bd):
+                print(f"\n[기준 경계 회차 (판정에는 반영 안 함, ±{margin:.0%})]")
+                print(bd[["clip_id", "rep", "verdict", "boundary"]].to_string(index=False))
         if "model_flag" in reps_df:
             att = reps_df[reps_df["model_flag"] == "주의"]
             if len(att):
