@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>녹화본 재생 · 팀05</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  .wrap { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+  .player { flex: 0 0 auto; max-width: 100%; }
+  canvas#cv { display: block; background: #000; border-radius: 8px; max-width: 100%; }
+  .bar { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  .bar button { padding: 6px 12px; min-width: 64px; }
+  #seek { flex: 1; min-width: 200px; }
+  .tl { position: relative; height: 22px; margin-top: 8px; background: rgba(127,127,127,.18); border-radius: 4px; cursor: pointer; }
+  .tl .mk { position: absolute; top: 2px; width: 6px; height: 18px; border-radius: 2px; transform: translateX(-3px); }
+  .tl .ph { position: absolute; top: 0; width: 2px; height: 22px; background: #fff; }
+  .side { flex: 1; min-width: 280px; }
+  table.ev { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.ev td, table.ev th { border-bottom: 1px solid rgba(127,127,127,.3); padding: 6px; text-align: left; }
+  table.ev tr { cursor: pointer; }
+  table.ev tr.cur { background: rgba(80,140,255,.18); }
+  .ok { color: #2e9e44; } .ng { color: #e04545; } .check { color: #999; } .warn { color: #e0a000; }
+  .savebox { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0 14px; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; background: rgba(224,160,0,.2); color: #e0a000; }
+  .tag.saved { background: rgba(46,158,68,.2); color: #2e9e44; }
+</style>
+</head>
+<body>
+<header><h1>녹화본 재생</h1><span>팀05 · <a href="/live">실시간 판정</a> · <a href="/records">녹화 목록</a></span></header>
+<main style="max-width:1300px">
+  <div class="card">
+    <div id="head"><b id="title">불러오는 중…</b> <span id="status"></span></div>
+    <div class="savebox" id="savebox"></div>
+    <div class="wrap">
+      <div class="player">
+        <canvas id="cv"></canvas>
+        <div class="bar">
+          <button id="play">▶ 재생</button>
+          <button id="back" title="← 키">−3초</button>
+          <button id="fwd" title="→ 키">+3초</button>
+          <input type="range" id="seek" min="0" max="1000" value="0">
+          <span id="time">0.0 / 0.0초</span>
+          <select id="speed"><option value="0.5">0.5배</option><option value="1" selected>1배</option><option value="2">2배</option></select>
+        </div>
+        <div class="tl" id="tl" title="누르면 그 시점으로 이동 — 막대는 회차 판정(초록 OK · 빨강 NG · 회색 CHECK)"></div>
+        <p class="hint" style="margin-top:8px">스페이스: 재생/멈춤 · ←/→: 3초 이동 · 오른쪽 표의 회차를 누르면 그 회차 시작 직전으로 이동합니다.</p>
+      </div>
+      <div class="side">
+        <div id="summary" class="stat" style="margin-bottom:8px"></div>
+        <table class="ev"><thead><tr><th>회차</th><th>시각</th><th>판정</th><th>메시지</th></tr></thead><tbody id="evs"></tbody></table>
+      </div>
+    </div>
+  </div>
+</main>
+<script>
+const EDGES = [[5,7],[7,9],[6,8],[8,10],[5,6],[11,12],[5,11],[6,12],[11,13],[13,15],[12,14],[14,16],[0,5],[0,6]];
+const KP_CONF = 0.5, BANNER_S = 3.0;
+const COLOR = {OK: "#2e9e44", NG: "#e04545", CHECK: "#8a8a8a"};
+const VIEW_KO = {front: "정면", diag: "사선", side: "측면"};
+const $ = id => document.getElementById(id);
+const recId = location.pathname.split("/").filter(Boolean).pop();
+const cv = $("cv"), g = cv.getContext("2d");
+let TL = null, frames = [], events = [], dur = 0, clock = 0, playing = false, speed = 1, lastTs = 0;
+const cache = new Map();   // Frame 번호 → Image
+
+function frameImg(i) {
+  if (!cache.has(i)) { const im = new Image(); im.src = `/api/records/${recId}/frame/${i}`; cache.set(i, im); }
+  return cache.get(i);
+}
+function preload(k) {  // 앞으로 40장 미리 받기, 멀리 지난 것은 버림
+  for (let j = k; j < Math.min(frames.length, k + 40); j++) frameImg(frames[j].i);
+  for (const key of cache.keys()) if (key < frames[k].i - 60) cache.delete(key);
+}
+function frameAt(t) {  // t초에 보여 줄 Frame 위치 (t 이하 중 마지막)
+  let lo = 0, hi = frames.length - 1;
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (frames[mid].t <= t) lo = mid; else hi = mid - 1; }
+  return lo;
+}
+
+// ---------- 화면 크기: 세로·가로 영상 모두 화면에 맞추고, 글자가 선명하도록 화면 배율만큼 크게 그림 ----------
+function layout() {
+  const W = TL.meta.width || 640, H = TL.meta.height || 480;
+  const maxW = Math.min(960, document.querySelector(".player").parentElement.clientWidth - 20);
+  const maxH = window.innerHeight * 0.72;
+  const s = Math.min(maxW / W, maxH / H);
+  const dpr = window.devicePixelRatio || 1;
+  cv.style.width = `${Math.round(W * s)}px`; cv.style.height = `${Math.round(H * s)}px`;
+  cv.width = Math.round(W * s * dpr); cv.height = Math.round(H * s * dpr);
+  document.querySelector(".player").style.width = `${Math.round(W * s)}px`;
+  draw();
+}
+
+function roundRect(x, y, w, h, r) {
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+function textBox(lines, x, y, pad, bg) {  // lines: [텍스트, 글꼴, 색]
+  let w = 0, h = pad;
+  lines.forEach(([t, f]) => { g.font = f; w = Math.max(w, g.measureText(t).width); h += parseInt(f.match(/(\d+)px/)[1]) * 1.25; });
+  roundRect(x, y, w + pad * 2, h + pad * 0.6, pad * 0.8); g.fillStyle = bg; g.fill();
+  let yy = y + pad;
+  lines.forEach(([t, f, c]) => { const sz = parseInt(f.match(/(\d+)px/)[1]); g.font = f; g.fillStyle = c; g.textBaseline = "top"; g.fillText(t, x + pad, yy); yy += sz * 1.25; });
+  return [w + pad * 2, h + pad * 0.6];
+}
+
+function draw() {
+  if (!TL || !frames.length) return;
+  const k = frameAt(clock), fr = frames[k], im = frameImg(fr.i);
+  const CW = cv.width, CH = cv.height, W = TL.meta.width || 640, H = TL.meta.height || 480;
+  const sx = CW / W, sy = CH / H, u = Math.max(12, Math.round(Math.min(CW, CH) / 26));  // 글자 기준 크기
+  g.clearRect(0, 0, CW, CH);
+  if (im.complete && im.naturalWidth) g.drawImage(im, 0, 0, CW, CH);
+  else { g.fillStyle = "#000"; g.fillRect(0, 0, CW, CH); im.onload = () => { if (!playing) draw(); }; }
+  // 뼈대: 흰 선 + 관절 점(초록 믿을 만함 / 노랑 애매 / 빨강 낮음)
+  const kp = fr.kp;
+  if (kp) {
+    g.lineWidth = Math.max(2, u / 6); g.strokeStyle = "rgba(255,255,255,.9)"; g.lineCap = "round";
+    EDGES.forEach(([a, b]) => {
+      if (kp[a][0] != null && kp[b][0] != null && kp[a][2] >= KP_CONF && kp[b][2] >= KP_CONF) {
+        g.beginPath(); g.moveTo(kp[a][0] * sx, kp[a][1] * sy); g.lineTo(kp[b][0] * sx, kp[b][1] * sy); g.stroke();
+      }
+    });
+    kp.forEach(([x, y, c]) => {
+      if (x == null || y == null) return;
+      g.fillStyle = c >= KP_CONF ? "#3c3" : c >= 0.3 ? "#fc0" : "#e33";
+      g.beginPath(); g.arc(x * sx, y * sy, Math.max(3, u / 4), 0, Math.PI * 2); g.fill();
+    });
+  }
+  // 왼쪽 위 정보: 동작·각도·상태 / 회차·OK·NG
+  const c = fr.counts || {OK: 0, NG: 0, CHECK: 0};
+  const m = TL.meta, pad = Math.round(u * 0.6);
+  textBox([[`${m.action_ko || m.action} · ${VIEW_KO[fr.view] || "각도 추정 중"} · ${fr.state || ""}`, `600 ${Math.round(u * 0.8)}px sans-serif`, "#ddd"],
+           [`회차 ${fr.rep_no ?? 0}`, `700 ${Math.round(u * 1.4)}px sans-serif`, "#fff"],
+           [`OK ${c.OK}   NG ${c.NG}${c.CHECK ? "   CHECK " + c.CHECK : ""}`, `700 ${Math.round(u * 1.0)}px sans-serif`, "#fff"]],
+          pad, pad, pad, "rgba(0,0,0,.55)");
+  // 아래쪽 판정 배너: 방금 끝난 회차를 3초 동안 크게
+  let ev = null;
+  for (const e of events) { if (e.t <= clock && clock - e.t < BANNER_S) ev = e; }
+  if (ev) {
+    const col = COLOR[ev.verdict] || "#555";
+    const big = `800 ${Math.round(u * 2.0)}px sans-serif`, mid = `700 ${Math.round(u * 1.0)}px sans-serif`, sm = `600 ${Math.round(u * 0.75)}px sans-serif`;
+    const lines = [[`${ev.rep}회  ${ev.verdict}`, big, "#fff"]];
+    if (ev.message) lines.push([ev.message, mid, "#fff"]);
+    const notes = [];
+    if (ev.boundary) notes.push("경계: 기준선 근처 — 한 번 더 확인");
+    if (ev.model_flag) notes.push("주의: 정석과 다른 움직임");
+    if (notes.length) lines.push([notes.join(" · "), sm, "#ffe08a"]);
+    g.font = big; let w = 0; lines.forEach(([t, f]) => { g.font = f; w = Math.max(w, g.measureText(t).width); });
+    const bw = w + pad * 2, x = (CW - bw) / 2;
+    const fade = Math.min(1, (BANNER_S - (clock - ev.t)) / 0.5);
+    g.globalAlpha = Math.max(0, fade);
+    let h = pad * 1.6; lines.forEach(([, f]) => { h += parseInt(f.match(/(\d+)px/)[1]) * 1.25; });
+    textBox(lines, x, CH - h - pad * 1.5, pad, col + "e6");
+    g.globalAlpha = 1;
+  }
+  // 재생 위치 표시
+  $("time").textContent = `${clock.toFixed(1)} / ${dur.toFixed(1)}초`;
+  $("seek").value = dur ? Math.round(clock / dur * 1000) : 0;
+  const ph = document.querySelector("#tl .ph"); if (ph) ph.style.left = `${dur ? clock / dur * 100 : 0}%`;
+  document.querySelectorAll("#evs tr").forEach(tr => tr.classList.toggle("cur", ev && +tr.dataset.i === events.indexOf(ev)));
+  preload(k);
+}
+
+function tick(ts) {
+  if (!playing) return;
+  const dt = lastTs ? (ts - lastTs) / 1000 : 0; lastTs = ts;
+  clock = Math.min(dur, clock + dt * speed);
+  draw();
+  if (clock >= dur) { setPlaying(false); return; }
+  requestAnimationFrame(tick);
+}
+function setPlaying(on) {
+  if (on && clock >= dur) clock = 0;
+  playing = on; lastTs = 0; $("play").textContent = on ? "❚❚ 멈춤" : "▶ 재생";
+  if (on) requestAnimationFrame(tick); else draw();
+}
+function seek(t) { clock = Math.max(0, Math.min(dur, t)); draw(); }
+
+function renderSide() {
+  const m = TL.meta;
+  $("title").textContent = m.title || `${m.action_ko || m.action} 실시간 판정 녹화`;
+  $("status").innerHTML = m.status === "saved" ? '<span class="tag saved">저장됨</span>' : '<span class="tag">저장 안 됨 (임시)</span>';
+  $("summary").innerHTML = `${m.created?.replace("T", " ") || ""} · ${m.source === "ipcam" ? "휴대폰 IP Webcam" : "PC 웹캠"} · 길이 ${dur.toFixed(1)}초<br>` +
+    `<b>회차 ${m.reps ?? 0} · <span class="ok">OK ${m.OK ?? 0}</span> · <span class="ng">NG ${m.NG ?? 0}</span>${m.CHECK ? " · CHECK " + m.CHECK : ""}</b>`;
+  $("evs").innerHTML = events.map((e, i) =>
+    `<tr data-i="${i}" data-t="${e.t}"><td>${e.rep}</td><td>${e.t.toFixed(1)}초</td>` +
+    `<td class="${e.verdict === "OK" ? "ok" : e.verdict === "NG" ? "ng" : "check"}"><b>${e.verdict}</b></td>` +
+    `<td>${e.message || ""}${e.boundary ? ' <span class="warn">(경계)</span>' : ""}${e.model_flag ? ' <span class="warn">(주의)</span>' : ""}</td></tr>`).join("");
+  document.querySelectorAll("#evs tr").forEach(tr => tr.onclick = () => seek(+tr.dataset.t - 1.5));
+  $("tl").innerHTML = events.map(e => `<div class="mk" style="left:${dur ? e.t / dur * 100 : 0}%;background:${COLOR[e.verdict] || "#888"}" title="${e.rep}회 ${e.verdict}"></div>`).join("") + '<div class="ph"></div>';
+  // 저장 상자
+  if (m.status === "saved") {
+    $("savebox").innerHTML = `<button id="del">삭제</button><span class="hint">녹화 목록에서 언제든 다시 볼 수 있습니다.</span>`;
+  } else {
+    $("savebox").innerHTML = `<input id="ttl" placeholder="제목 (예: 지후 스쿼트 점프 1세트)" style="width:260px"><button id="sv">저장</button><button id="del">삭제</button>` +
+      `<span class="hint" id="svmsg">저장하지 않으면 다음 실시간 판정을 시작하거나 서버를 끌 때 사라집니다.</span>`;
+    $("sv").onclick = async () => {
+      const fd = new FormData(); fd.append("title", $("ttl").value);
+      const r = await fetch(`/api/records/${recId}/save`, {method: "POST", body: fd});
+      if (r.ok) { TL.meta = await r.json(); renderSide(); } else $("svmsg").innerHTML = '<span class="err">저장 실패 — 이미 지워졌을 수 있습니다</span>';
+    };
+  }
+  $("del").onclick = async () => {
+    if (!confirm("이 녹화본을 지울까요? 되돌릴 수 없습니다.")) return;
+    await fetch(`/api/records/${recId}`, {method: "DELETE"});
+    location.href = "/records";
+  };
+}
+
+$("play").onclick = () => setPlaying(!playing);
+$("back").onclick = () => seek(clock - 3);
+$("fwd").onclick = () => seek(clock + 3);
+$("seek").oninput = e => seek(e.target.value / 1000 * dur);
+$("speed").onchange = e => { speed = +e.target.value; };
+$("tl").onclick = e => { const r = $("tl").getBoundingClientRect(); seek((e.clientX - r.left) / r.width * dur); };
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.code === "Space") { e.preventDefault(); setPlaying(!playing); }
+  if (e.key === "ArrowLeft") seek(clock - 3);
+  if (e.key === "ArrowRight") seek(clock + 3);
+});
+window.addEventListener("resize", () => TL && layout());
+
+fetch(`/api/records/${recId}`).then(async r => {
+  if (!r.ok) { const j = await r.json().catch(() => ({})); $("title").innerHTML = `<span class="err">${j.detail || "녹화본을 불러오지 못했습니다"}</span>`; return; }
+  TL = await r.json();
+  frames = TL.frames; events = TL.events || []; dur = frames.length ? frames[frames.length - 1].t : 0;
+  renderSide(); layout();
+  frameImg(frames[0].i).onload = () => draw();
+});
+</script>
+</body>
+</html>
