@@ -44,8 +44,8 @@ sys.path.insert(0, str(ROOT))
 
 from src.form_model import FormModel, rep_block, series_frame  # noqa: E402
 from src.team_feature_utils import (  # noqa: E402
-    MESSAGES, curve_distance, load_team_config, metrics_for, rep_metrics, seq_fps, shallow_attempts, team_paths,
-    view_group,
+    MESSAGES, curve_distance, load_team_config, metrics_for, rep_metrics, rep_min_len, seq_fps, shallow_attempts,
+    team_paths, view_group,
 )
 
 
@@ -151,7 +151,8 @@ def main() -> None:
 
         seq = pd.read_csv(sp)
         reps, curves = rep_metrics(seq, r["view"], seq_fps(seq, fps), kp_conf,
-                                    cfg["actions"][r["action_id"]].get("leg_combine", "mean"))
+                                    cfg["actions"][r["action_id"]].get("leg_combine", "mean"),
+                                    min_len_s=rep_min_len(cfg["actions"][r["action_id"]]))
         if reps.empty:
             clip_rows.append(dict(**base, n_reps=0, n_ok=0, n_ng=0, n_check=1, verdict="CHECK",
                                   note="1회 구간을 찾지 못함 — 전신이 화면에 들어오게 촬영"))

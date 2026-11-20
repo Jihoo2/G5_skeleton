@@ -130,7 +130,9 @@
         }
       },
       "rules_note": "정석 정의(제안값): 서 있을 때 다리 높이의 55% 이하까지 앉기, 앉은 순간 무릎 간격 ≥ 발목 간격의 80%(KASR, 무릎이 안으로 무너지지 않기)",
-      "shallow_attempt_ng": true
+      "shallow_attempt_ng": true,
+      "min_rep_s": 0.4,
+      "min_rep_note": "1회 최소 길이 0.3→0.4초 (2026-11-20, val_ext): EXT_S04 대각 3·8회차(0.30·0.33초)는 영상 확인 결과 점프 후 착지하며 무릎을 굽힌 동작인데 1회로 잡혀 '몸을 더 낮게' NG가 남. 정상 1회는 0.47~0.77초"
     }
   },
   "standard": {
@@ -160,7 +162,8 @@
       "knee_spread_bottom": 0.4
     },
     "judge_glb_only": false,
-    "min_subjects": 3
+    "min_subjects": 3,
+    "boundary_margin": 0.02
   },
   "split": {
     "train": [

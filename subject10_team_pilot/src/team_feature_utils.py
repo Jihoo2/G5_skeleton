@@ -49,6 +49,13 @@ COCO_TO_VICON = {
 REP_METRICS = ["knee_min", "hip_min", "elbow_min", "depth",
                "body_line_min", "body_line_max", "knee_spread_bottom", "duration_s"]
 TEMPLATE_LEN = 48  # 1회 구간을 48개 시점으로 맞춤 (교과 4일차 예시와 동일)
+DEFAULT_MIN_REP_S = 0.3  # find_reps 최소 길이 기본값 (동작별로 actions.*.min_rep_s 로 바꿀 수 있음)
+
+
+def rep_min_len(action: dict | None) -> float:
+    """동작별 1회 최소 길이(초). 녹화 판정(team_09)과 실시간(realtime_judge)이 같은 값을 쓰도록 여기서만 읽음.
+    예) 스쿼트 점프: 점프 후 착지할 때 무릎을 굽히는 0.3초 남짓의 동작이 1회로 잡히는 것을 막기 위해 0.4"""
+    return float((action or {}).get("min_rep_s", DEFAULT_MIN_REP_S))
 
 
 # ------------------------------------------------------------------
@@ -526,10 +533,11 @@ def resample(x, n: int = TEMPLATE_LEN):
 
 
 def rep_metrics(seq: pd.DataFrame, view: str, fps: float = 30.0, kp_conf: float = 0.50,
-                combine: str = "mean"):
-    """Clip 하나 → 1회 단위 측정값 표 + 1회 곡선(48점)"""
+                combine: str = "mean", min_len_s: float = DEFAULT_MIN_REP_S):
+    """Clip 하나 → 1회 단위 측정값 표 + 1회 곡선(48점)
+    min_len_s: 1회로 인정할 최소 길이(초) — 판정 코드는 rep_min_len(action) 값을 넘김"""
     ser = resolved_series(seq, view, kp_conf, combine)
-    reps, stand = find_reps(ser["leg_ratio"], fps)
+    reps, stand = find_reps(ser["leg_ratio"], fps, min_len_s=min_len_s)
     rows, curves = [], []
     for n, (s, e) in enumerate(reps, 1):
         seg = slice(s, e)

@@ -27,7 +27,7 @@ from src.feature_utils import LEFT_ANKLE, LEFT_HIP, LEFT_SHOULDER, RIGHT_ANKLE, 
 from src.form_model import FormModel, rep_block, series_frame
 from src.team_feature_utils import (
     MESSAGES, build_frame_features, curve_distance, find_reps, find_shallow_attempts, metrics_for,
-    rep_metrics, shallow_attempts, view_group,
+    rep_metrics, rep_min_len, shallow_attempts, view_group,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -86,6 +86,7 @@ class OnlineJudge:
         self.check_ratio = cfg["standard"]["low_conf_check_ratio"]
         self.margin = float(cfg["standard"].get("boundary_margin", 0.02))
         self.combine = self.action.get("leg_combine", "mean")
+        self.min_rep = rep_min_len(self.action)  # 녹화 판정과 같은 동작별 1회 최소 길이
         self.p, self.std_kind = p, standards
         self.n_buf = int(self.rt["buffer_s"] * fps)
         self.fid, self.t = deque(maxlen=self.n_buf), deque(maxlen=self.n_buf)
@@ -159,7 +160,7 @@ class OnlineJudge:
         lr = self._lr_buffer()
         first = self.total - len(self.fid)
         out = []
-        reps, _ = find_reps(lr, self.fps)
+        reps, _ = find_reps(lr, self.fps, min_len_s=self.min_rep)
         segs = [(s, e, "rep") for s, e in reps]
         if self.action.get("shallow_attempt_ng"):
             segs += [(s, e, "shallow") for s, e in find_shallow_attempts(lr, self.fps)]
@@ -196,7 +197,8 @@ class OnlineJudge:
         conf = np.array(list(self.conf)[a:b])
         view = self.view or "front"
         seq = build_frame_features(fid, t, xy, conf, view, self.kp_conf)
-        reps, curves = rep_metrics(seq, view_group(view, self.cfg), self.fps, self.kp_conf, self.combine)
+        reps, curves = rep_metrics(seq, view_group(view, self.cfg), self.fps, self.kp_conf, self.combine,
+                                   min_len_s=self.min_rep)
         lo, hi = s - a, e - a
         best, best_ov = None, 0
         for k, rr in reps.iterrows():
