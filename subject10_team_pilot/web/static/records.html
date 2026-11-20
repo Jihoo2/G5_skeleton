@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>녹화 목록 · 팀05</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  table.rec { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.rec td, table.rec th { border-bottom: 1px solid rgba(127,127,127,.3); padding: 8px 6px; text-align: left; }
+  .ok { color: #2e9e44; } .ng { color: #e04545; }
+  table.rec button { padding: 4px 10px; }
+</style>
+</head>
+<body>
+<header><h1>녹화 목록</h1><span>저장한 실시간 판정 녹화본 · 팀05 · <a href="/live">실시간 판정</a> · <a href="/">영상 업로드 분석</a></span></header>
+<main style="max-width:1000px">
+  <div class="card">
+    <table class="rec"><thead><tr><th>제목</th><th>날짜</th><th>동작</th><th>입력</th><th>길이</th><th>결과</th><th></th></tr></thead>
+      <tbody id="list"><tr><td colspan="7">불러오는 중…</td></tr></tbody></table>
+    <p class="hint" style="margin-top:14px">
+      · 실시간 판정이 끝난 뒤 '저장'을 누른 녹화본만 여기에 남습니다. 저장하지 않은 녹화본은 다음 실시간 판정을 시작하거나 서버를 끌 때 지워집니다.<br>
+      · 녹화본은 이 PC(reports/team_projects/team05/live_records)에만 있고 Git에 올라가지 않습니다. 사람 얼굴이 담기므로 외부에 공개하지 마세요.
+    </p>
+  </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+function load() {
+  fetch("/api/records").then(r => r.json()).then(list => {
+    if (!list.length) { $("list").innerHTML = '<tr><td colspan="7">저장한 녹화본이 없습니다. <a href="/live">실시간 판정</a>에서 녹화한 뒤 저장하세요.</td></tr>'; return; }
+    $("list").innerHTML = list.map(m => `<tr>
+      <td><a href="/records/${m.id}"><b>${esc(m.title) || esc(m.action_ko || m.action) + " 녹화"}</b></a></td>
+      <td>${esc((m.created || "").replace("T", " ").slice(0, 16))}</td>
+      <td>${esc(m.action_ko || m.action)}</td>
+      <td>${m.source === "ipcam" ? "IP Webcam" : "PC 웹캠"}</td>
+      <td>${(m.duration ?? 0).toFixed(0)}초</td>
+      <td>${m.reps ?? 0}회 · <span class="ok">OK ${m.OK ?? 0}</span> · <span class="ng">NG ${m.NG ?? 0}</span></td>
+      <td><a href="/records/${m.id}"><button>▶ 재생</button></a> <button data-del="${m.id}">삭제</button></td></tr>`).join("");
+    document.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
+      if (!confirm("이 녹화본을 지울까요? 되돌릴 수 없습니다.")) return;
+      await fetch(`/api/records/${b.dataset.del}`, {method: "DELETE"}); load();
+    });
+  });
+}
+load();
+</script>
+</body>
+</html>

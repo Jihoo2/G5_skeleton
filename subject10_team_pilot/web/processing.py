@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -22,16 +23,34 @@ sys.path.insert(0, str(ROOT))
 from src.realtime_judge import OnlineJudge  # noqa: E402
 
 _MODEL = None
+# 업로드 분석(작업 스레드)과 웹캠 실시간(web/live.py)이 같은 YOLO 모델을 함께 쓰므로
+# 한 번에 하나만 추론하도록 잠금 (YOLO 모델은 여러 스레드가 동시에 호출하면 안전하지 않음)
+_PREDICT_LOCK = threading.Lock()
 
 
 def _yolo():
     global _MODEL
-    if _MODEL is None:
-        from ultralytics import YOLO
-        from src.common import load_config, resolve_device
-        pc = load_config()
-        _MODEL = (YOLO(pc["pose_model"]), pc, resolve_device(pc["device"]))
+    with _PREDICT_LOCK:
+        if _MODEL is None:
+            from ultralytics import YOLO
+            from src.common import load_config, resolve_device
+            pc = load_config()
+            _MODEL = (YOLO(pc["pose_model"]), pc, resolve_device(pc["device"]))
     return _MODEL
+
+
+def predict_pose(frame) -> tuple[np.ndarray, np.ndarray]:
+    """Frame 한 장 → (17,2) 좌표, (17,) Confidence. 사람이 없으면 NaN / 0.
+    여러 사람이 잡히면 검출 점수가 가장 높은 한 명 (team_21 과 같은 방식)"""
+    model, pc, device = _yolo()
+    with _PREDICT_LOCK:
+        r = model.predict(source=frame, imgsz=pc["image_size"], conf=pc["person_confidence"],
+                          device=device, verbose=False)[0]
+    xy, conf = np.full((17, 2), np.nan), np.zeros(17)
+    if r.boxes is not None and len(r.boxes) and r.keypoints is not None and r.keypoints.conf is not None:
+        i = int(np.argmax(r.boxes.conf.cpu().numpy()))
+        xy, conf = r.keypoints.xy.cpu().numpy()[i], r.keypoints.conf.cpu().numpy()[i]
+    return xy, conf
 
 
 def _clean(o):
@@ -49,7 +68,6 @@ def _clean(o):
 
 def analyze_video(video: Path, action: str, view: str, cfg: dict, p: dict, out_dir: Path,
                   standards: str = "team", progress=lambda x: None) -> dict:
-    model, pc, device = _yolo()
     cap = cv2.VideoCapture(str(video))
     if not cap.isOpened():
         raise RuntimeError("영상을 열 수 없습니다")
@@ -64,12 +82,8 @@ def analyze_video(video: Path, action: str, view: str, cfg: dict, p: dict, out_d
         if not ok:
             break
         n += 1
-        r = model.predict(source=frame, imgsz=pc["image_size"], conf=pc["person_confidence"],
-                          device=device, verbose=False)[0]
-        xy, conf = np.full((17, 2), np.nan), np.zeros(17)
-        if r.boxes is not None and len(r.boxes) and r.keypoints is not None and r.keypoints.conf is not None:
-            i = int(np.argmax(r.boxes.conf.cpu().numpy()))
-            xy, conf = r.keypoints.xy.cpu().numpy()[i], r.keypoints.conf.cpu().numpy()[i]
+        xy, conf = predict_pose(frame)
+        if np.isfinite(xy).any():
             frames.append([[round(float(x), 1), round(float(y), 1), round(float(c), 2)]
                            for (x, y), c in zip(xy, conf)])
         else:
