@@ -11,5 +11,5 @@ EXT_S10_A008_T01_side,SRC_010,KakaoTalk_20261116_171713829.mp4,0,5.2,side,카톡
 EXT_S11_A001_T01_side,SRC_011,KakaoTalk_20261116_171646558.mp4,0,25.1,side,카톡으로 받은 영상(11-16) / 자막 있으나 몸 가리지 않음 / 원본 전체 사용
 EXT_S12_A004_T01_side,SRC_012,KakaoTalk_20261117_144013381.mp4,0,6.9,side,실제 인물 측면 런지
 EXT_S13_A004_T01_side,SRC_013,How To Do A Forward Lunge.mp4,0,10.2,side,10.3초 이후 다리 클로즈업 구간 제외
-EXT_S14_A004_T01_side,SRC_014,Dumbbell Forward Lunge #lunges.mp4,0,11.6,side,덤벨 포워드 런지 / 세로 영상 / 정측면보다 약간 앞쪽
+EXT_S14_A004_T01_side,SRC_014,Dumbbell Forward Lunge #lunges.mp4,0,11.6,side,EXCLUDE(판정 제외): 덤벨을 든 런지라 맨몸 정석과 조건이 다름 / 덤벨 포워드 런지 / 세로 영상 / 정측면보다 약간 앞쪽
 EXT_S15_A004_T01_side,SRC_015,KakaoTalk_20261117_144902975.mp4,0,4.2,side,화면 녹화(하단 재생 막대) / 발은 가려지지 않음
