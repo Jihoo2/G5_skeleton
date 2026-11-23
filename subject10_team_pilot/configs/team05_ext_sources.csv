@@ -1,4 +1,14 @@
 clip_id,source_group,source_ref,start_sec,end_sec,view,note
+EXT_S01_A001_T01_side,SRC_001,KakaoTalk_20261116_153606959.mp4,0,13.6,side,"카톡 화면 녹화(11-16) / 야외, 사람이 작게 나옴 / 원본 전체 사용"
+EXT_S02_A001_T01_front,SRC_002,KakaoTalk_20261116_153611095.mp4,0,6.6,front,카톡 화면 녹화(11-16) / 정면 버피는 판정 안 함(CHECK 확인용)
+EXT_S04_A008_T01_diag,SRC_004,KakaoTalk_20261116_153617938.mp4,0,10.3,diag,카톡 화면 녹화(11-16) / 원본 전체 사용
+EXT_S05_A008_T01_front,SRC_005,KakaoTalk_20261116_153621888.mp4,0,12.0,front,카톡 화면 녹화(11-16) / 원본 전체 사용
+EXT_S06_A008_T01_front,SRC_006,KakaoTalk_20261116_153624659.mp4,0,9.1,front,"카톡 화면 녹화(11-16) / 원본 24fps → ffmpeg -r 30 변환, 저해상도"
+EXT_S07_A004_T01_side,SRC_007,KakaoTalk_20261116_153628762.mp4,0,9.0,side,카톡 화면 녹화(11-16) / 무릎이 바닥 가까이 내려가는 런지 / 앞무릎 점 오검출 회차는 CHECK
+EXT_S08_A004_T01_diag,SRC_008,KakaoTalk_20261116_153633007.mp4,0,9.8,diag,카톡 화면 녹화(11-16) / 원본 전체 사용
+EXT_S09_A004_T01_diag,SRC_009,KakaoTalk_20261116_153637820.mp4,0,14.4,diag,카톡 화면 녹화(11-16) / 원본 전체 사용
+EXT_S10_A008_T01_side,SRC_010,KakaoTalk_20261116_171713829.mp4,0,5.2,side,카톡으로 받은 영상(11-16) / 원본 전체 사용
+EXT_S11_A001_T01_side,SRC_011,KakaoTalk_20261116_171646558.mp4,0,25.1,side,카톡으로 받은 영상(11-16) / 자막 있으나 몸 가리지 않음 / 원본 전체 사용
 EXT_S12_A004_T01_side,SRC_012,KakaoTalk_20261117_144013381.mp4,0,6.9,side,실제 인물 측면 런지
 EXT_S13_A004_T01_side,SRC_013,How To Do A Forward Lunge.mp4,0,10.2,side,10.3초 이후 다리 클로즈업 구간 제외
 EXT_S14_A004_T01_side,SRC_014,Dumbbell Forward Lunge #lunges.mp4,0,11.6,side,덤벨 포워드 런지 / 세로 영상 / 정측면보다 약간 앞쪽
