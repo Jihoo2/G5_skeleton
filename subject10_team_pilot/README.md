@@ -174,6 +174,11 @@ uvicorn web.app:app --host 0.0.0.0 --port 8000
 
 > 최종 성능은 test_ext 평가 후 추가합니다.
 
+### 관련 문서
+- 오류 원인 추적 사례: [`docs/failure_cases.md`](docs/failure_cases.md)
+- 외부 영상 출처: `configs/team05_ext_sources.csv` · 제외 기록: `configs/team05_ext_excluded.csv` (외부 영상은 학습·검증에만 쓰고 저장소·발표 자료에 올리지 않음)
+- EXT_S03은 점프 없는 버피라 제외해서 번호가 비어 있음
+
 ---
 
 ## 7. 수업 일차 ↔ 팀 코드
